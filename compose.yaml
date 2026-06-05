@@ -1,0 +1,45 @@
+services:
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      # ":80" = czysty HTTP w dev (bez certyfikatów). Na "localhost"
+      # FrankenPHP włączy automatyczne HTTPS z lokalnym certem.
+      SERVER_NAME: ":80"
+      # Pusty na etapie 0. Na etapie 4 ustawimy: "worker ./public/index.php"
+      FRANKENPHP_CONFIG: ""
+      # Realne zmienne środowiskowe mają pierwszeństwo nad plikiem .env,
+      # więc bin/console w kontenerze użyje tej bazy.
+      DATABASE_URL: "postgresql://app:ChangeMe@database:5432/app?serverVersion=16&charset=utf8"
+    volumes:
+      - ./:/app
+      - ./frankenphp/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    ports:
+      - "8080:80"
+    depends_on:
+      database:
+        condition: service_healthy
+
+  database:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ChangeMe
+    volumes:
+      - database_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  database_data:
+  caddy_data:
+  caddy_config:

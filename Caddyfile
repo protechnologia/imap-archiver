@@ -1,0 +1,13 @@
+{
+	frankenphp {
+		# Puste na etapie 0. Na etapie 4 zmienna FRANKENPHP_CONFIG
+		# wstawi tu np.: worker ./public/index.php
+		{$FRANKENPHP_CONFIG}
+	}
+}
+
+{$SERVER_NAME:localhost} {
+	root * /app/public
+	encode zstd br gzip
+	php_server
+}
