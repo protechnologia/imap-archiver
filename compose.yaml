@@ -14,12 +14,12 @@ services:
       # więc bin/console w kontenerze użyje tej bazy.
       DATABASE_URL: "postgresql://app:ChangeMe@database:5432/app?serverVersion=16&charset=utf8"
     volumes:
-      - ./:/app
+      - ./app/:/app
       - ./frankenphp/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     ports:
-      - "8080:80"
+      - "8180:80"
     depends_on:
       database:
         condition: service_healthy

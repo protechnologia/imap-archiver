@@ -21,20 +21,11 @@ Tailwind (AssetMapper, bez Node) · EasyAdmin · Docker.
 1. **Wygeneruj szkielet Symfony.** Z lokalnym Composerem:
 
    ```bash
-   composer create-project symfony/skeleton:"7.*" imap-archiver && cd imap-archiver
-   ```
-
-   Bez lokalnego PHP — kontenerem:
-
-   ```bash
    docker run --rm -v "$PWD":/app -w /app composer:2 \
      create-project symfony/skeleton:"7.*" imap-archiver && cd imap-archiver
    ```
 
-2. **Skopiuj pliki Dockera** do projektu: `compose.yaml` i `Dockerfile` do korzenia,
-   `Caddyfile` do podfolderu `frankenphp/`.
-
-3. **Zbuduj i wstań:**
+2. **Zbuduj i wstań:**
 
    ```bash
    docker compose up -d --build
@@ -42,20 +33,20 @@ Tailwind (AssetMapper, bez Node) · EasyAdmin · Docker.
 
    Postgres ma healthcheck, więc `php` ruszy dopiero, gdy baza będzie gotowa.
 
-4. **Podłącz Doctrine** (żeby `DATABASE_URL` był realnie używany):
+3. **Podłącz Doctrine** (żeby `DATABASE_URL` był realnie używany):
 
    ```bash
    docker compose exec php composer require symfony/orm-pack
    ```
 
-5. **Smoke test — sprawdź, że całość żyje:**
+4. **Smoke test — sprawdź, że całość żyje:**
 
    ```bash
-   docker compose exec php php bin/console doctrine:query:sql "SELECT 1"
+   docker compose exec php php bin/console dbal:run-sql "SELECT 1"
    docker compose exec php php bin/console about
    ```
 
-6. **Otwórz** `http://localhost:8080`. Świeży skeleton bez tras zwróci 404 — to normalne;
+5. **Otwórz** `http://localhost:8180`. Świeży skeleton bez tras zwróci 404 — to normalne;
    istotne, że odpowiada Symfony, a nie błąd serwera. Pierwszą trasę (`/health`) dodajemy
    na etapie 1.
 
@@ -63,13 +54,13 @@ Tailwind (AssetMapper, bez Node) · EasyAdmin · Docker.
 
 ```
 imap-archiver/
-├── compose.yaml
-├── Dockerfile
+├── app/ #(szkielet Symfony: public/, src/, vendor/, .env, ...)
 ├── frankenphp/
 │   └── Caddyfile
 ├── CLAUDE.md
+├── compose.yaml
+├── Dockerfile
 ├── README.md
-└── (szkielet Symfony: public/, src/, vendor/, .env, ...)
 ```
 
 ## Przydatne polecenia
