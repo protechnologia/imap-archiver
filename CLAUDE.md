@@ -15,7 +15,7 @@ Wielu użytkowników z dostępem do podglądu; jeden admin robi import i zarząd
 
 ## Stack
 
-- PHP 8.x / Symfony 7
+- PHP 8.x / Symfony 7.4 (LTS)
 - FrankenPHP (serwer + worker mode na produkcji), Caddy
 - PostgreSQL 16
 - IMAP: `webklex/php-imap` (NIE `ext-imap` — wypada z core PHP)
@@ -25,6 +25,8 @@ Wielu użytkowników z dostępem do podglądu; jeden admin robi import i zarząd
 - Panel admina: EasyAdmin
 - Mercure (wbudowany w FrankenPHP) — live-progress importu
 - Docker / docker compose
+- Narzędzia dev (`require-dev`): Web Profiler (pasek + `/_profiler`), Debug (`dump()`),
+  Maker (`make:*`)
 - Później: Meilisearch (full-text search, etap 7)
 
 ## Architektura — zasady, których trzymamy się bezwzględnie
@@ -71,9 +73,22 @@ Wielu użytkowników z dostępem do podglądu; jeden admin robi import i zarząd
 Każdy etap kończy się czymś działającym. Niebezpieczne usuwanie (etap 6) podłączamy
 dopiero, gdy import, archiwum i weryfikacja są pewne.
 
-- [ ] Etap 0 — szkielet Symfony + Docker (FrankenPHP + Postgres). Pliki przygotowane:
+- [x] Etap 0 — szkielet Symfony + Docker (FrankenPHP + Postgres). Pliki przygotowane:
       `compose.yaml`, `Dockerfile`, `frankenphp/Caddyfile`.
-- [ ] Etap 1 — model danych, logowanie, EasyAdmin (userzy, konta).
+- [ ] Etap 1 — model danych, logowanie, EasyAdmin (userzy, konta). Podetapy:
+  - [x] Etap 1.1 — encja `User` (email, hasło hashowane, role), security provider, formularz
+        logowania, `ROLE_ADMIN`/`ROLE_USER`, pierwszy admin (komenda `app:user:create`).
+        ➜ działa: logowanie i wylogowanie.
+  - [ ] Etap 1.2 — EasyAdmin za `ROLE_ADMIN` + CRUD `User` (zakładanie, role, reset hasła).
+        ➜ działa: admin zarządza użytkownikami z panelu.
+  - [ ] Etap 1.3 — encja `MailAccount` (host, port, login, folder, typ auth) + many-to-many
+        `User ↔ MailAccount`. ➜ działa: model kont w bazie, migracja przechodzi.
+  - [ ] Etap 1.4 — szyfrowanie poświadczeń at-rest (hasło/sekret szyfrowane, NIGDY plaintext;
+        pole typ auth: hasło vs OAuth2/XOAUTH2; klucz w sekretach).
+        ➜ działa: hasło konta nie leży jawnie w bazie.
+  - [ ] Etap 1.5 — CRUD `MailAccount` w EasyAdmin + przypisywanie userów do kont.
+        ➜ działa: admin zakłada konto IMAP i przydziela dostęp.
+        (`Message`/`Attachment` powstają realnie przy imporcie — Etap 3.)
 - [ ] Etap 2 — spike połączenia IMAP (CLI). BLOKADA: wymaga decyzji o dostawcy poczty.
 - [ ] Etap 3 — import synchroniczny, mały zakres (`.eml` + DB, idempotentnie).
 - [ ] Etap 4 — async (Messenger) + skala + progress.
@@ -90,6 +105,13 @@ docker compose exec php composer <komenda>
 docker compose exec php php bin/console doctrine:migrations:migrate
 docker compose exec php php bin/console doctrine:query:sql "SELECT 1"   # smoke test DB
 
+# użytkownicy (od etapu 1)
+docker compose exec php php bin/console app:user:create <email> [hasło] [--admin]
+# konto testowe (dev) założone w etapie 1.1: admin@example.com / Tajne123! (ROLE_ADMIN)
+
+# front: build CSS Tailwind (od etapu 1; v4, bez Node)
+docker compose exec php php bin/console tailwind:build [-m] [--watch]
+
 # import (od etapu 3)
 docker compose exec php php bin/console app:archive:import --account=<id> --year=<rok>
 
@@ -97,7 +119,7 @@ docker compose exec php php bin/console app:archive:import --account=<id> --year
 docker compose exec php php bin/console messenger:consume async -vv
 ```
 
-Aplikacja w dev: `http://localhost:8080` (FrankenPHP na `SERVER_NAME=":80"`, port 8080→80).
+Aplikacja w dev: `http://localhost:8180` (FrankenPHP na `SERVER_NAME=":80"`, port 8180→80).
 
 ## Otwarte decyzje
 
@@ -115,3 +137,11 @@ Aplikacja w dev: `http://localhost:8080` (FrankenPHP na `SERVER_NAME=":80"`, por
 - `docker compose down -v` KASUJE nazwane wolumeny — w tym bazę. Bez `-v` wolumeny zostają.
 - Surowe archiwum `.eml` będzie potrzebowało własnego, osobnego wolumenu — dodać przy etapie 3.
 - `APP_SECRET` trzymamy w sekrecie i nie rotujemy bez powodu (unieważnia podpisy Live Components).
+- `var/` (cache, logi, profiler) jest na **nazwanym wolumenie** `app_var` (compose.yaml), nie na
+  bind-mouncie Windows — inaczej profiler timeoutuje (`max_execution_time` przy `Filesystem::dumpFile`).
+  Skutek: reset tego wolumenu (lub `down -v`) kasuje też build Tailwinda → po `up` zrób `tailwind:build -m`.
+- `tailwind:build`: nieudane pobranie binarki zostawia **plik 0-bajtowy** i bundle go nie pobiera ponownie
+  → build kończy się EXIT=0 bez `app.built.css`, strony lecą 500. Naprawa: `rm -rf var/tailwind/<wersja>`
+  i build ponownie.
+- Docker działa tylko w dystrybucji WSL `dev-edor-gw` (nie w Docker Desktop): polecenia przez
+  `wsl -d dev-edor-gw -e bash -lc "cd /mnt/c/... && docker compose ..."`.

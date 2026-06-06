@@ -15,6 +15,10 @@ services:
       DATABASE_URL: "postgresql://app:ChangeMe@database:5432/app?serverVersion=16&charset=utf8"
     volumes:
       - ./app/:/app
+      # var/ (cache, logi, profiler) na nazwanym wolumenie = szybki filesystem
+      # Linuksa zamiast wolnego bind-mountu Windows. Bez tego profiler zapisujący
+      # setki małych plików na request przekracza max_execution_time.
+      - app_var:/app/var
       - ./frankenphp/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
@@ -43,3 +47,4 @@ volumes:
   database_data:
   caddy_data:
   caddy_config:
+  app_var:

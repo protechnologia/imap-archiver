@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="pl">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>{% block title %}imap-archiver{% endblock %}</title>
+        <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 128%22><rect width=%22128%22 height=%22128%22 rx=%2228%22 fill=%22%230f172a%22/><g fill=%22none%22 stroke=%22%23ffffff%22 stroke-width=%226%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22><rect x=%2228%22 y=%2240%22 width=%2272%22 height=%2248%22 rx=%228%22/><path d=%22M30 46 64 70 98 46%22/></g></svg>">
+        {% block stylesheets %}
+        {% endblock %}
+
+        {% block javascripts %}
+            {% block importmap %}{{ importmap('app') }}{% endblock %}
+        {% endblock %}
+
+        {% set frankenphpHotReload = app.request.server.get('FRANKENPHP_HOT_RELOAD') %}
+        {% if frankenphpHotReload %}
+        <meta name="frankenphp-hot-reload:url" content="{{ frankenphpHotReload }}">
+        <script src="https://cdn.jsdelivr.net/npm/idiomorph"></script>
+        <script src="https://cdn.jsdelivr.net/npm/frankenphp-hot-reload/+esm" type="module"></script>
+        {% endif %}
+    </head>
+    <body>
+        {% block body %}{% endblock %}
+    </body>
+</html>

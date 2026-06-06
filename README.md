@@ -11,21 +11,17 @@ Plan etapów, architektura i zasady projektu: zobacz [`CLAUDE.md`](./CLAUDE.md).
 - Docker + Docker Compose
 - Opcjonalnie: lokalny PHP 8.x + Composer (inaczej użyjemy kontenera)
 
+> Szkielet Symfony jest już w repo (`app/`) — nie trzeba go generować. Wystarczy
+> sklonować i wstać.
+
 ## Stack
 
-Symfony 7 · FrankenPHP · PostgreSQL 16 · Symfony UX (Turbo + Stimulus + Live Components) ·
-Tailwind (AssetMapper, bez Node) · EasyAdmin · Docker.
+Symfony 7.4 (LTS) · FrankenPHP · PostgreSQL 16 · Symfony UX (Turbo + Stimulus + Live
+Components) · Tailwind (AssetMapper, bez Node) · EasyAdmin · Docker.
 
-## Pierwsze uruchomienie (etap 0)
+## Pierwsze uruchomienie
 
-1. **Wygeneruj szkielet Symfony.** Z lokalnym Composerem:
-
-   ```bash
-   docker run --rm -v "$PWD":/app -w /app composer:2 \
-     create-project symfony/skeleton:"7.*" imap-archiver && cd imap-archiver
-   ```
-
-2. **Zbuduj i wstań:**
+1. **Zbuduj i wstań:**
 
    ```bash
    docker compose up -d --build
@@ -33,22 +29,29 @@ Tailwind (AssetMapper, bez Node) · EasyAdmin · Docker.
 
    Postgres ma healthcheck, więc `php` ruszy dopiero, gdy baza będzie gotowa.
 
-3. **Podłącz Doctrine** (żeby `DATABASE_URL` był realnie używany):
+2. **Migracje** (utworzą tabele, m.in. `user`):
 
    ```bash
-   docker compose exec php composer require symfony/orm-pack
+   docker compose exec php php bin/console doctrine:migrations:migrate
    ```
 
-4. **Smoke test — sprawdź, że całość żyje:**
+3. **Zbuduj CSS Tailwind** (bez tego strony lecą 500):
 
    ```bash
-   docker compose exec php php bin/console dbal:run-sql "SELECT 1"
-   docker compose exec php php bin/console about
+   docker compose exec php php bin/console tailwind:build -m
    ```
 
-5. **Otwórz** `http://localhost:8180`. Świeży skeleton bez tras zwróci 404 — to normalne;
-   istotne, że odpowiada Symfony, a nie błąd serwera. Pierwszą trasę (`/health`) dodajemy
-   na etapie 1.
+4. **Załóż pierwszego admina:**
+
+   ```bash
+   docker compose exec php php bin/console app:user:create admin@example.com 'Tajne123!' --admin
+   ```
+
+5. **Otwórz** `http://localhost:8180`. Bez sesji przekieruje na `/login` — zaloguj się
+   kontem z kroku 4. Pasek debugowania (Web Profiler) widać na dole strony w trybie `dev`.
+
+> Pracujesz w środowisku, gdzie Docker działa tylko w dystrybucji WSL `dev-edor-gw`?
+> Poprzedzaj polecenia: `wsl -d dev-edor-gw -e bash -lc "cd /mnt/c/... && docker compose ..."`.
 
 ## Struktura katalogu
 

@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+html {
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    @apply antialiased text-slate-800;
+}

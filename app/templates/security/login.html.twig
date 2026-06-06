@@ -1,0 +1,56 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Logowanie — imap-archiver{% endblock %}
+
+{% block body %}
+    <main class="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 px-4 py-12">
+        <div class="w-full max-w-sm">
+            <div class="rounded-2xl bg-white p-8 shadow-xl ring-1 ring-slate-200">
+                <div class="mb-6 text-center">
+                    <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-900 text-xl text-white">
+                        ✉
+                    </div>
+                    <h1 class="text-lg font-semibold text-slate-900">imap-archiver</h1>
+                    <p class="text-sm text-slate-500">Archiwum poczty IMAP</p>
+                </div>
+
+                {% if error %}
+                    <div class="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200">
+                        {{ error.messageKey|trans(error.messageData, 'security') }}
+                    </div>
+                {% endif %}
+
+                <form method="post" action="{{ path('app_login') }}" class="space-y-4">
+                    <div>
+                        <label for="username" class="mb-1 block text-sm font-medium text-slate-700">
+                            Adres e-mail
+                        </label>
+                        <input type="email" id="username" name="_username"
+                               value="{{ last_username }}" autocomplete="email" required autofocus
+                               class="block w-full rounded-lg border-0 px-3 py-2 text-slate-900 ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-slate-900">
+                    </div>
+
+                    <div>
+                        <label for="password" class="mb-1 block text-sm font-medium text-slate-700">
+                            Hasło
+                        </label>
+                        <input type="password" id="password" name="_password"
+                               autocomplete="current-password" required
+                               class="block w-full rounded-lg border-0 px-3 py-2 text-slate-900 ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-slate-900">
+                    </div>
+
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+
+                    <button type="submit"
+                            class="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2">
+                        Zaloguj się
+                    </button>
+                </form>
+            </div>
+
+            <p class="mt-6 text-center text-xs text-slate-400">
+                Dostęp tylko dla uprawnionych użytkowników.
+            </p>
+        </div>
+    </main>
+{% endblock %}

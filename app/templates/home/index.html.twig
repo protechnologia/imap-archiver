@@ -1,0 +1,30 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}imap-archiver{% endblock %}
+
+{% block body %}
+    <div class="min-h-screen bg-slate-50">
+        <header class="border-b border-slate-200 bg-white">
+            <div class="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+                <div class="flex items-center gap-2">
+                    <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-sm text-white">✉</span>
+                    <span class="font-semibold text-slate-900">imap-archiver</span>
+                </div>
+                <div class="flex items-center gap-4 text-sm">
+                    <span class="text-slate-500">{{ app.user.userIdentifier }}</span>
+                    <a href="{{ path('app_logout') }}"
+                       class="rounded-lg px-3 py-1.5 font-medium text-slate-700 ring-1 ring-slate-300 transition hover:bg-slate-100">
+                        Wyloguj się
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <main class="mx-auto max-w-5xl px-4 py-10">
+            <h1 class="text-2xl font-semibold text-slate-900">Witaj w imap-archiver</h1>
+            <p class="mt-2 text-slate-600">
+                Panel podglądu i zarządzania archiwum pojawi się w kolejnych etapach.
+            </p>
+        </main>
+    </div>
+{% endblock %}
