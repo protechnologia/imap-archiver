@@ -5,8 +5,6 @@ roku), zapisuje surowe `.eml` jako źródło prawdy, indeksuje je w bazie do pod
 wyszukiwania, i opcjonalnie kasuje z serwera po świadomym potwierdzeniu admina.
 Wielu użytkowników z dostępem do podglądu; jeden admin robi import i zarządza kontami.
 
-> Nazwa robocza `imap-archiver`. Kandydaci produktowi: `pigeonhole`, `Skrytka`, `mothball`.
-
 ## Konwencje
 
 - Komunikacja, UI i treści po polsku; kod, identyfikatory i nazwy plików po angielsku.
@@ -25,8 +23,6 @@ Wielu użytkowników z dostępem do podglądu; jeden admin robi import i zarząd
 - Panel admina: EasyAdmin
 - Mercure (wbudowany w FrankenPHP) — live-progress importu
 - Docker / docker compose
-- Narzędzia dev (`require-dev`): Web Profiler (pasek + `/_profiler`), Debug (`dump()`),
-  Maker (`make:*`)
 - Później: Meilisearch (full-text search, etap 7)
 
 ## Architektura — zasady, których trzymamy się bezwzględnie
@@ -79,8 +75,9 @@ dopiero, gdy import, archiwum i weryfikacja są pewne.
   - [x] Etap 1.1 — encja `User` (email, hasło hashowane, role), security provider, formularz
         logowania, `ROLE_ADMIN`/`ROLE_USER`, pierwszy admin (komenda `app:user:create`).
         ➜ działa: logowanie i wylogowanie.
-  - [ ] Etap 1.2 — EasyAdmin za `ROLE_ADMIN` + CRUD `User` (zakładanie, role, reset hasła).
-        ➜ działa: admin zarządza użytkownikami z panelu.
+  - [x] Etap 1.2 — EasyAdmin za `ROLE_ADMIN` + CRUD `User` (zakładanie, role, reset hasła).
+        ➜ działa: admin zarządza użytkownikami z panelu (lista, dodawanie z hashowaniem
+        hasła, edycja ról i reset hasła, usuwanie). Pulpit `/admin` przekierowuje na listę.
   - [ ] Etap 1.3 — encja `MailAccount` (host, port, login, folder, typ auth) + many-to-many
         `User ↔ MailAccount`. ➜ działa: model kont w bazie, migracja przechodzi.
   - [ ] Etap 1.4 — szyfrowanie poświadczeń at-rest (hasło/sekret szyfrowane, NIGDY plaintext;
@@ -145,3 +142,11 @@ Aplikacja w dev: `http://localhost:8180` (FrankenPHP na `SERVER_NAME=":80"`, por
   i build ponownie.
 - Docker działa tylko w dystrybucji WSL `dev-edor-gw` (nie w Docker Desktop): polecenia przez
   `wsl -d dev-edor-gw -e bash -lc "cd /mnt/c/... && docker compose ..."`.
+- EasyAdmin 5.x: w menu **nie ma `MenuItem::linkToCrud()`** (było we wcześniejszych wersjach).
+  Link do CRUD-a robimy przez `MenuItem::linkTo(FooCrudController::class, 'Etykieta', 'fa fa-...')`.
+- Stateless CSRF (config/packages/csrf.yaml): formularze renderują token jako literał
+  `csrf-token` (JS go podmienia w przeglądarce). Walidacja przechodzi, gdy żądanie jest
+  same-origin (nagłówek `Origin`/`Referer` zgodny z hostem) **i** w POST jest pole tokenu
+  o wartości placeholdera. Test logowania curl-em wymaga więc:
+  `-H "Origin: http://localhost" --data-urlencode "_csrf_token=csrf-token"`. Akcja delete
+  w EasyAdmin używa zwykłego sesyjnego tokenu (nie stateless) + `_method=DELETE`.

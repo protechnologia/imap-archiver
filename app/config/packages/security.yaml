@@ -30,6 +30,8 @@ security:
     # Note: Only the *first* matching rule is applied
     access_control:
         - { path: ^/login, roles: PUBLIC_ACCESS }
+        # Panel admina (EasyAdmin) tylko dla administratorów.
+        - { path: ^/admin, roles: ROLE_ADMIN }
         # Wszystko poza stroną logowania wymaga zalogowania.
         - { path: ^/, roles: ROLE_USER }
 

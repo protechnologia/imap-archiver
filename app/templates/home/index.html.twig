@@ -11,6 +11,12 @@
                     <span class="font-semibold text-slate-900">imap-archiver</span>
                 </div>
                 <div class="flex items-center gap-4 text-sm">
+                    {% if is_granted('ROLE_ADMIN') %}
+                        <a href="{{ path('admin') }}"
+                           class="rounded-lg px-3 py-1.5 font-medium text-slate-700 ring-1 ring-slate-300 transition hover:bg-slate-100">
+                            Panel admina
+                        </a>
+                    {% endif %}
                     <span class="text-slate-500">{{ app.user.userIdentifier }}</span>
                     <a href="{{ path('app_logout') }}"
                        class="rounded-lg px-3 py-1.5 font-medium text-slate-700 ring-1 ring-slate-300 transition hover:bg-slate-100">
