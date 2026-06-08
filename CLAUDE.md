@@ -128,6 +128,10 @@ docker compose exec php php bin/console messenger:consume async -vv
 
 Aplikacja w dev: `http://localhost:8180` (FrankenPHP na `SERVER_NAME=":80"`, port 8180→80).
 
+Projekt mieszka w **natywnym FS WSL**: `~/projects/imap-archiver` (`/root/projects/imap-archiver`
+w dystrybucji `dev-edor-gw`), **nie** na `/mnt/c`. Edycja przez VS Code Remote-WSL; dostęp z
+Eksploratora Windows pod `\\wsl.localhost\dev-edor-gw\root\projects\imap-archiver`.
+
 ## Otwarte decyzje
 
 - **Dostawca poczty:** własny serwer IMAP z hasłem vs Gmail / M365 (OAuth2/XOAUTH2).
@@ -172,18 +176,21 @@ Aplikacja w dev: `http://localhost:8180` (FrankenPHP na `SERVER_NAME=":80"`, por
 - `EntityManager` w długo żyjącym workerze: pamiętać o `clear()` i obsłudze zamkniętego EM.
 - `docker compose down -v` KASUJE nazwane wolumeny — w tym bazę. Bez `-v` wolumeny zostają.
 - Surowe archiwum `.eml` będzie potrzebowało własnego, osobnego wolumenu — dodać przy etapie 3.
-- `var/` (cache, logi, profiler) jest na **nazwanym wolumenie** `app_var` (compose.yaml), nie na
-  bind-mouncie Windows — inaczej profiler timeoutuje (`max_execution_time` przy `Filesystem::dumpFile`).
-  Skutek: reset tego wolumenu (lub `down -v`) kasuje też build Tailwinda → po `up` zrób `tailwind:build -m`.
-  `app_var` zdejmuje tylko *zapisowy* storm — reszta drzewa (`src/`, `config/`, **`vendor/`**) wciąż
-  siedzi na `/mnt/c` (drvfs) i jest wolna przy *odczycie*, dlatego pełna przebudowa cache potrafi
-  timeoutować pod równoległym ruchem. Docelowa naprawa (rozważyć przy etapie 4): projekt do FS WSL
-  lub `vendor/` na osobny nazwany wolumen.
+- `var/` (cache, logi, profiler) jest na **nazwanym wolumenie** `app_var` (compose.yaml). To relikt
+  z czasów `/mnt/c` — chronił przed timeoutem profilera (`max_execution_time` przy `Filesystem::dumpFile`)
+  na wolnym bind-mouncie Windows. Po przeniesieniu projektu na ext4 WSL całe drzewo jest już szybkie
+  (read+write), więc `app_var` jest **opcjonalny** — można go zdjąć z `compose.yaml` (rozważyć przy
+  etapie 4). Zostawiony nie szkodzi. UWAGA: reset tego wolumenu (lub `down -v`) wciąż kasuje build
+  Tailwinda → po `up` zrób `tailwind:build -m`.
 - `tailwind:build`: nieudane pobranie binarki zostawia **plik 0-bajtowy** i bundle go nie pobiera ponownie
   → build kończy się EXIT=0 bez `app.built.css`, strony lecą 500. Naprawa: `rm -rf var/tailwind/<wersja>`
   i build ponownie.
 - Docker działa tylko w dystrybucji WSL `dev-edor-gw` (nie w Docker Desktop): polecenia przez
-  `wsl -d dev-edor-gw -e bash -lc "cd /mnt/c/... && docker compose ..."`.
+  `wsl -d dev-edor-gw -e bash -lc "cd ~/projects/imap-archiver && docker compose ..."`.
+- Git z WSL działa po HTTPS przez **Windows Git Credential Manager**: w repo ustawione
+  `credential.helper = /mnt/c/Program\ Files/Git/mingw64/bin/git-credential-manager.exe` (spacja
+  uciekana backslashem — inaczej `sh -c` rozbija ścieżkę: `/mnt/c/Program: not found`). Dzięki temu
+  `git push`/`fetch` robimy już z WSL, nie trzeba przełączać się na PowerShell.
 - EasyAdmin 5.x: w menu **nie ma `MenuItem::linkToCrud()`** (było we wcześniejszych wersjach).
   Link do CRUD-a robimy przez `MenuItem::linkTo(FooCrudController::class, 'Etykieta', 'fa fa-...')`.
 - Stateless CSRF (config/packages/csrf.yaml): formularze renderują token jako literał
