@@ -1,0 +1,4 @@
+# Sekrety warstwy Docker Compose (podstawianie ${...} w compose.yaml).
+# Root-owy .env to odpowiednik .env.local — TYLKO wartości tajne, nigdy w repo.
+# Compose czyta dokładnie ten jeden plik; defaulty dev siedzą inline jako ${VAR:-default}.
+/.env

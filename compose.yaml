@@ -12,7 +12,9 @@ services:
       FRANKENPHP_CONFIG: ""
       # Realne zmienne środowiskowe mają pierwszeństwo nad plikiem .env,
       # więc bin/console w kontenerze użyje tej bazy.
-      DATABASE_URL: "postgresql://app:ChangeMe@database:5432/app?serverVersion=16&charset=utf8"
+      # Hasło z root-owego /.env (gitignore) jako ${DB_PASSWORD}; w dev default = ChangeMe.
+      # Ta sama wartość zasila POSTGRES_PASSWORD niżej — jedno źródło, obie strony spójne.
+      DATABASE_URL: "postgresql://app:${DB_PASSWORD:-ChangeMe}@database:5432/app?serverVersion=16&charset=utf8"
     volumes:
       - ./app/:/app
       # var/ (cache, logi, profiler) na nazwanym wolumenie = szybki filesystem
@@ -34,7 +36,7 @@ services:
     environment:
       POSTGRES_DB: app
       POSTGRES_USER: app
-      POSTGRES_PASSWORD: ChangeMe
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-ChangeMe}
     volumes:
       - database_data:/var/lib/postgresql/data
     healthcheck:

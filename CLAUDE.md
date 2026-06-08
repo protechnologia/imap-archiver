@@ -126,6 +126,22 @@ Aplikacja w dev: `http://localhost:8180` (FrankenPHP na `SERVER_NAME=":80"`, por
   Realnie zmienia warstwę uwierzytelniania — blokuje etap 2.
 - **Baza:** Postgres (zdecydowane). MySQL jako znana alternatywa, gdyby zaszła potrzeba.
 
+## Konfiguracja i sekrety
+
+- **Dwie warstwy `.env` — różne pliki, różni konsumenci.**
+  - **Warstwa Symfony:** `app/.env*` czyta Symfony (Dotenv, z hierarchią `.env.local` itd.).
+    Sekrety aplikacji (`APP_SECRET`, później `MAIL_CRYPTO_KEY`) → `app/.env.local`. `DATABASE_URL`
+    z `compose.yaml` (real env var) NADPISUJE ten z `app/.env` — wartość w `app/.env`
+    (host `127.0.0.1`) to tylko atrapa dla trybu non-Docker.
+  - **Warstwa Compose:** root-owy `/.env` (obok `compose.yaml`) czyta **tylko** Docker Compose
+    do podstawiania `${...}` — jeden plik, bez hierarchii, gitignorowany (szablon w commitowanym
+    `.env.dist`). Sekret bazy (`DB_PASSWORD`, konsumowany przez kontener Postgresa **i** aplikację)
+    → root `/.env`; default dev jest inline w `compose.yaml` jako `${DB_PASSWORD:-ChangeMe}`.
+- `APP_SECRET` trzymamy w sekrecie i nie rotujemy bez powodu (unieważnia podpisy Live Components).
+- **`POSTGRES_PASSWORD` działa TYLKO przy pierwszej inicjalizacji wolumenu `database_data`.**
+  Zmiana `DB_PASSWORD` przy istniejącej bazie NIE zmieni hasła już utworzonego Postgresa —
+  trzeba zmienić je w samej bazie (`ALTER USER`) albo zresetować wolumen (`down -v`, kasuje dane).
+
 ## Gotchas — łatwo o tym zapomnieć
 
 - `ext-imap` wypada z core PHP → używamy `webklex/php-imap`.
@@ -135,7 +151,6 @@ Aplikacja w dev: `http://localhost:8180` (FrankenPHP na `SERVER_NAME=":80"`, por
 - `EntityManager` w długo żyjącym workerze: pamiętać o `clear()` i obsłudze zamkniętego EM.
 - `docker compose down -v` KASUJE nazwane wolumeny — w tym bazę. Bez `-v` wolumeny zostają.
 - Surowe archiwum `.eml` będzie potrzebowało własnego, osobnego wolumenu — dodać przy etapie 3.
-- `APP_SECRET` trzymamy w sekrecie i nie rotujemy bez powodu (unieważnia podpisy Live Components).
 - `var/` (cache, logi, profiler) jest na **nazwanym wolumenie** `app_var` (compose.yaml), nie na
   bind-mouncie Windows — inaczej profiler timeoutuje (`max_execution_time` przy `Filesystem::dumpFile`).
   Skutek: reset tego wolumenu (lub `down -v`) kasuje też build Tailwinda → po `up` zrób `tailwind:build -m`.

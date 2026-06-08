@@ -8,18 +8,23 @@ Plan etapów, architektura i zasady projektu: zobacz [`CLAUDE.md`](./CLAUDE.md).
 
 ## Wymagania
 
-- Docker + Docker Compose
-- Opcjonalnie: lokalny PHP 8.x + Composer (inaczej użyjemy kontenera)
-
-> Szkielet Symfony jest już w repo (`app/`) — nie trzeba go generować. Wystarczy
-> sklonować i wstać.
+- Docker
+- Docker Compose
 
 ## Stack
 
-Symfony 7.4 (LTS) · FrankenPHP · PostgreSQL 16 · Symfony UX (Turbo + Stimulus + Live
-Components) · Tailwind (AssetMapper, bez Node) · EasyAdmin · Docker.
+- Symfony 7.4 (LTS)
+- FrankenPHP
+- PostgreSQL 16
+- Symfony UX (Turbo + Stimulus + Live Components)
+- Tailwind (AssetMapper, bez Node)
+- EasyAdmin
+- Docker
 
 ## Pierwsze uruchomienie
+
+> To ścieżka **dev** — działa bez żadnej konfiguracji. Na produkcji najpierw ustaw sekrety
+> (zobacz [Konfiguracja i sekrety](#konfiguracja-i-sekrety)), dopiero potem te kroki.
 
 1. **Zbuduj i wstań:**
 
@@ -53,13 +58,66 @@ Components) · Tailwind (AssetMapper, bez Node) · EasyAdmin · Docker.
 > Pracujesz w środowisku, gdzie Docker działa tylko w dystrybucji WSL `dev-edor-gw`?
 > Poprzedzaj polecenia: `wsl -d dev-edor-gw -e bash -lc "cd /mnt/c/... && docker compose ..."`.
 
+## Konfiguracja i sekrety
+
+Sekrety dzielą się na dwie warstwy, bo czytają je dwa różne procesy:
+
+- **Sekrety aplikacji** (np. `APP_SECRET`) → `app/.env.local` (gitignorowany), czyta Symfony.
+- **Sekrety Compose** (`DB_PASSWORD`) → root-owy `/.env` (gitignorowany), czyta wyłącznie
+  Docker Compose przy podstawianiu `${...}` (≠ `app/.env`).
+
+**Dev działa bez dodatkowej konfiguracji** — `compose.yaml` ma wbudowany default
+`${DB_PASSWORD:-ChangeMe}`, a `APP_SECRET` nie jest krytyczny lokalnie. Nic nie zakładasz.
+
+### Produkcja — krok po kroku
+
+Te kroki wykonaj **przed** `docker compose up` — sekrety muszą istnieć, zanim wstaną kontenery.
+
+1. **Hasło bazy (warstwa Compose).** Skopiuj szablon i wpisz realne hasło:
+
+   ```bash
+   cp .env.dist .env
+   # edytuj /.env i ustaw np. DB_PASSWORD=<silne-hasło>
+   ```
+
+   Ten root-owy `/.env` jest gitignorowany. Compose użyje go zarówno dla `POSTGRES_PASSWORD`
+   (kontener bazy), jak i dla hasła w `DATABASE_URL` (aplikacja) — jedno źródło, obie strony spójne.
+
+   > UWAGA: `POSTGRES_PASSWORD` działa tylko przy **pierwszej** inicjalizacji wolumenu
+   > `database_data`. Jeśli baza już istnieje, zmiana `DB_PASSWORD` jej nie przestawi —
+   > trzeba `ALTER USER` albo zresetować wolumen (`down -v`, kasuje dane).
+
+2. **Sekrety aplikacji (warstwa Symfony).** Załóż `app/.env.local` i ustaw `APP_SECRET`:
+
+   ```bash
+   # wygeneruj losowy sekret (32 bajty hex)
+   openssl rand -hex 32
+   ```
+
+   ```dotenv
+   # app/.env.local
+   APP_ENV=prod
+   APP_SECRET=<wynik-openssl>
+   ```
+
+   Ten plik jest gitignorowany. **Nie rotuj `APP_SECRET` bez powodu** — unieważnia podpisy
+   Live Components.
+
+Po ustawieniu obu warstw wstań i zmigruj jak w sekcji „Pierwsze uruchomienie".
+
 ## Struktura katalogu
 
 ```
 imap-archiver/
-├── app/ #(szkielet Symfony: public/, src/, vendor/, .env, ...)
+├── app/ #(szkielet Symfony)
+│   ├── .env #(commitowany: domyślne wartości + atrapy, NIE sekrety)
+│   ├── .env.dev #(commitowany: domyślne wartości dla APP_ENV=dev)
+│   ├── .env.local #(gitignorowany: sekrety aplikacji, np. APP_SECRET)
+│   └── ... #(pozostałe pliki aplikacji: public/, src/, vendor/, ...)
 ├── frankenphp/
 │   └── Caddyfile
+├── .env #(gitignorowany: sekrety Compose, np. DB_PASSWORD — tylko prod)
+├── .env.dist #(commitowany szablon sekretów Compose; skopiuj do /.env na prod)
 ├── CLAUDE.md
 ├── compose.yaml
 ├── Dockerfile
