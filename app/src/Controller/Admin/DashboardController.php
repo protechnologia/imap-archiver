@@ -40,5 +40,6 @@ class DashboardController extends AbstractDashboardController
         yield MenuItem::linkToUrl('Powrót do aplikacji', 'fa fa-arrow-left', $this->generateUrl('app_home'));
         yield MenuItem::section('Zarządzanie');
         yield MenuItem::linkTo(UserCrudController::class, 'Użytkownicy', 'fa fa-users');
+        yield MenuItem::linkTo(MailAccountCrudController::class, 'Konta IMAP', 'fa fa-envelope');
     }
 }

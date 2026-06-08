@@ -148,4 +148,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
         return $this;
     }
+
+    /** Etykieta użytkownika w UI (EasyAdmin, listy wyboru relacji) — adres e-mail. */
+    public function __toString(): string
+    {
+        return $this->email ?? '';
+    }
 }

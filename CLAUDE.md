@@ -71,7 +71,7 @@ dopiero, gdy import, archiwum i weryfikacja są pewne.
 
 - [x] Etap 0 — szkielet Symfony + Docker (FrankenPHP + Postgres). Pliki przygotowane:
       `compose.yaml`, `Dockerfile`, `frankenphp/Caddyfile`.
-- [ ] Etap 1 — model danych, logowanie, EasyAdmin (userzy, konta). Podetapy:
+- [x] Etap 1 — model danych, logowanie, EasyAdmin (userzy, konta). Podetapy:
   - [x] Etap 1.1 — encja `User` (email, hasło hashowane, role), security provider, formularz
         logowania, `ROLE_ADMIN`/`ROLE_USER`, pierwszy admin (komenda `app:user:create`).
         ➜ działa: logowanie i wylogowanie.
@@ -88,8 +88,13 @@ dopiero, gdy import, archiwum i weryfikacja są pewne.
         `CredentialEncryptor`, klucz `MAIL_CRYPTO_KEY`; typ rejestrowany i zasilany
         encryptorem w `Kernel::boot()`. ➜ działa: w bazie leży szyfrogram, ORM zwraca
         wartość jawną (round-trip zweryfikowany), `schema:validate` czysty.
-  - [ ] Etap 1.5 — CRUD `MailAccount` w EasyAdmin + przypisywanie userów do kont.
-        ➜ działa: admin zakłada konto IMAP i przydziela dostęp.
+  - [x] Etap 1.5 — CRUD `MailAccount` w EasyAdmin (`MailAccountCrudController`) + przypisywanie
+        userów do kont (`AssociationField`, M2M). Pole `secret` jako `PasswordType` `mapped=false`,
+        `onlyOnForms()`; listener `POST_SUBMIT` przepisuje plaintext na encję, a puste pole przy
+        edycji = bez zmiany (nie nadpisuje szyfrogramu). Tylko `AuthType::Password` (XOAUTH2 czeka
+        na decyzję o dostawcy — Etap 2). `User::__toString()` (email) dla list wyboru relacji.
+        ➜ działa: admin zakłada konto IMAP i przydziela dostęp; w bazie szyfrogram, pusty `secret`
+        nie kasuje hasła, przypisania w `mail_account_user` (zweryfikowane).
         (`Message`/`Attachment` powstają realnie przy imporcie — Etap 3.)
 - [ ] Etap 2 — spike połączenia IMAP (CLI). BLOKADA: wymaga decyzji o dostawcy poczty.
 - [ ] Etap 3 — import synchroniczny, mały zakres (`.eml` + DB, idempotentnie).
@@ -159,13 +164,21 @@ Aplikacja w dev: `http://localhost:8180` (FrankenPHP na `SERVER_NAME=":80"`, por
   zgubiłaby encryptor. Nie przenosić tego z powrotem do configu „dla porządku".
 - Worker mode (FrankenPHP) trzyma usługi w pamięci między żądaniami → nie przechowuj
   stanu żądania w usługach; stanowe usługi implementują `ResetInterface`, najlepiej trzymaj
-  je bezstanowymi.
+  je bezstanowymi. UWAGA: worker **nie jest jeszcze włączony** — `FRANKENPHP_CONFIG` jest puste,
+  dev działa w klasycznym `php_server` (zmiany kodu łapią się per-request, bez restartu).
+  Worker wchodzi w **etapie 4** (`FRANKENPHP_CONFIG=worker ./public/index.php`); dopiero wtedy
+  zmiana klasy PHP wymaga restartu kontenera, by worker wczytał nowy kod. Powyższe zasady
+  bezstanowości piszemy już teraz, żeby kod był gotowy na worker.
 - `EntityManager` w długo żyjącym workerze: pamiętać o `clear()` i obsłudze zamkniętego EM.
 - `docker compose down -v` KASUJE nazwane wolumeny — w tym bazę. Bez `-v` wolumeny zostają.
 - Surowe archiwum `.eml` będzie potrzebowało własnego, osobnego wolumenu — dodać przy etapie 3.
 - `var/` (cache, logi, profiler) jest na **nazwanym wolumenie** `app_var` (compose.yaml), nie na
   bind-mouncie Windows — inaczej profiler timeoutuje (`max_execution_time` przy `Filesystem::dumpFile`).
   Skutek: reset tego wolumenu (lub `down -v`) kasuje też build Tailwinda → po `up` zrób `tailwind:build -m`.
+  `app_var` zdejmuje tylko *zapisowy* storm — reszta drzewa (`src/`, `config/`, **`vendor/`**) wciąż
+  siedzi na `/mnt/c` (drvfs) i jest wolna przy *odczycie*, dlatego pełna przebudowa cache potrafi
+  timeoutować pod równoległym ruchem. Docelowa naprawa (rozważyć przy etapie 4): projekt do FS WSL
+  lub `vendor/` na osobny nazwany wolumen.
 - `tailwind:build`: nieudane pobranie binarki zostawia **plik 0-bajtowy** i bundle go nie pobiera ponownie
   → build kończy się EXIT=0 bez `app.built.css`, strony lecą 500. Naprawa: `rm -rf var/tailwind/<wersja>`
   i build ponownie.
