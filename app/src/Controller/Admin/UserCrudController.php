@@ -56,7 +56,11 @@ class UserCrudController extends AbstractCrudController
     {
         yield IdField::new('id')->onlyOnIndex();
 
-        yield EmailField::new('email', 'Adres e-mail');
+        // Na liście/podglądzie zwykły tekst (bez linku mailto:), na formularzach
+        // EmailField — zachowuje input type="email" i walidację adresu.
+        yield in_array($pageName, [Crud::PAGE_INDEX, Crud::PAGE_DETAIL], true)
+            ? TextField::new('email', 'Adres e-mail')
+            : EmailField::new('email', 'Adres e-mail');
 
         yield ChoiceField::new('roles', 'Role')
             ->allowMultipleChoices()
