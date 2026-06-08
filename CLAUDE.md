@@ -176,12 +176,9 @@ Eksploratora Windows pod `\\wsl.localhost\dev-edor-gw\root\projects\imap-archive
 - `EntityManager` w długo żyjącym workerze: pamiętać o `clear()` i obsłudze zamkniętego EM.
 - `docker compose down -v` KASUJE nazwane wolumeny — w tym bazę. Bez `-v` wolumeny zostają.
 - Surowe archiwum `.eml` będzie potrzebowało własnego, osobnego wolumenu — dodać przy etapie 3.
-- `var/` (cache, logi, profiler) jest na **nazwanym wolumenie** `app_var` (compose.yaml). To relikt
-  z czasów `/mnt/c` — chronił przed timeoutem profilera (`max_execution_time` przy `Filesystem::dumpFile`)
-  na wolnym bind-mouncie Windows. Po przeniesieniu projektu na ext4 WSL całe drzewo jest już szybkie
-  (read+write), więc `app_var` jest **opcjonalny** — można go zdjąć z `compose.yaml` (rozważyć przy
-  etapie 4). Zostawiony nie szkodzi. UWAGA: reset tego wolumenu (lub `down -v`) wciąż kasuje build
-  Tailwinda → po `up` zrób `tailwind:build -m`.
+- `var/` (cache, logi, profiler, build Tailwinda) jedzie z bind-mountu `./app:/app` na ext4 WSL —
+  szybki filesystem, bez osobnego wolumenu. Build Tailwinda siedzi w `./app/var/tailwind/` i jest trwały;
+  kasuje go tylko ręczny reset `var/` → wtedy `tailwind:build -m` ponownie.
 - `tailwind:build`: nieudane pobranie binarki zostawia **plik 0-bajtowy** i bundle go nie pobiera ponownie
   → build kończy się EXIT=0 bez `app.built.css`, strony lecą 500. Naprawa: `rm -rf var/tailwind/<wersja>`
   i build ponownie.

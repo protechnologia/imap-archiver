@@ -17,10 +17,9 @@ services:
       DATABASE_URL: "postgresql://app:${DB_PASSWORD:-ChangeMe}@database:5432/app?serverVersion=16&charset=utf8"
     volumes:
       - ./app/:/app
-      # var/ (cache, logi, profiler) na nazwanym wolumenie = szybki filesystem
-      # Linuksa zamiast wolnego bind-mountu Windows. Bez tego profiler zapisujący
-      # setki małych plików na request przekracza max_execution_time.
-      - app_var:/app/var
+      # var/ (cache, logi, profiler) jedzie z bind-mountu ./app na ext4 WSL — szybki
+      # filesystem, więc osobny nazwany wolumen na var/ nie jest już potrzebny (relikt
+      # z czasów /mnt/c, gdzie profiler timeoutował na wolnym bind-mouncie Windows).
       - ./frankenphp/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
@@ -49,4 +48,3 @@ volumes:
   database_data:
   caddy_data:
   caddy_config:
-  app_var:
