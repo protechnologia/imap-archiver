@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Entity;
 
 use App\Repository\UserRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
@@ -37,6 +39,20 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      */
     #[ORM\Column]
     private string $password;
+
+    /**
+     * Konta IMAP, do których użytkownik ma dostęp (many-to-many).
+     * Strona odwrotna — właścicielem relacji jest MailAccount.
+     *
+     * @var Collection<int, MailAccount>
+     */
+    #[ORM\ManyToMany(targetEntity: MailAccount::class, mappedBy: 'users')]
+    private Collection $mailAccounts;
+
+    public function __construct()
+    {
+        $this->mailAccounts = new ArrayCollection();
+    }
 
     public function getId(): ?int
     {
@@ -103,5 +119,33 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      */
     public function eraseCredentials(): void
     {
+    }
+
+    /**
+     * @return Collection<int, MailAccount>
+     */
+    public function getMailAccounts(): Collection
+    {
+        return $this->mailAccounts;
+    }
+
+    public function addMailAccount(MailAccount $mailAccount): static
+    {
+        if (!$this->mailAccounts->contains($mailAccount)) {
+            $this->mailAccounts->add($mailAccount);
+            // Synchronizacja strony właścicielskiej.
+            $mailAccount->addUser($this);
+        }
+
+        return $this;
+    }
+
+    public function removeMailAccount(MailAccount $mailAccount): static
+    {
+        if ($this->mailAccounts->removeElement($mailAccount)) {
+            $mailAccount->removeUser($this);
+        }
+
+        return $this;
     }
 }

@@ -78,8 +78,10 @@ dopiero, gdy import, archiwum i weryfikacja są pewne.
   - [x] Etap 1.2 — EasyAdmin za `ROLE_ADMIN` + CRUD `User` (zakładanie, role, reset hasła).
         ➜ działa: admin zarządza użytkownikami z panelu (lista, dodawanie z hashowaniem
         hasła, edycja ról i reset hasła, usuwanie). Pulpit `/admin` przekierowuje na listę.
-  - [ ] Etap 1.3 — encja `MailAccount` (host, port, login, folder, typ auth) + many-to-many
-        `User ↔ MailAccount`. ➜ działa: model kont w bazie, migracja przechodzi.
+  - [x] Etap 1.3 — encja `MailAccount` (label, host, port, imapLogin, folder, authType jako
+        enum `AuthType`) + many-to-many `User ↔ MailAccount` (właściciel: `MailAccount`,
+        join table `mail_account_user` z `ON DELETE CASCADE`). ➜ działa: model kont w bazie,
+        migracja przechodzi, `schema:validate` czysty. Poświadczenia (szyfrowane) — etap 1.4.
   - [ ] Etap 1.4 — szyfrowanie poświadczeń at-rest (hasło/sekret szyfrowane, NIGDY plaintext;
         pole typ auth: hasło vs OAuth2/XOAUTH2; klucz w sekretach).
         ➜ działa: hasło konta nie leży jawnie w bazie.
@@ -100,7 +102,7 @@ docker compose up -d --build
 docker compose exec php php bin/console <komenda>
 docker compose exec php composer <komenda>
 docker compose exec php php bin/console doctrine:migrations:migrate
-docker compose exec php php bin/console doctrine:query:sql "SELECT 1"   # smoke test DB
+docker compose exec php php bin/console dbal:run-sql "SELECT 1"   # smoke test DB
 
 # użytkownicy (od etapu 1)
 docker compose exec php php bin/console app:user:create <email> [hasło] [--admin]
