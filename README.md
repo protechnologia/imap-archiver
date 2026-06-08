@@ -87,21 +87,25 @@ Te kroki wykonaj **przed** `docker compose up` — sekrety muszą istnieć, zani
    > `database_data`. Jeśli baza już istnieje, zmiana `DB_PASSWORD` jej nie przestawi —
    > trzeba `ALTER USER` albo zresetować wolumen (`down -v`, kasuje dane).
 
-2. **Sekrety aplikacji (warstwa Symfony).** Załóż `app/.env.local` i ustaw `APP_SECRET`:
+2. **Sekrety aplikacji (warstwa Symfony).** Załóż `app/.env.local` i ustaw `APP_SECRET`
+   oraz `MAIL_CRYPTO_KEY` (klucz szyfrowania poświadczeń IMAP):
 
    ```bash
-   # wygeneruj losowy sekret (32 bajty hex)
-   openssl rand -hex 32
+   # każdy sekret to osobne 32 bajty hex
+   openssl rand -hex 32   # dla APP_SECRET
+   openssl rand -hex 32   # dla MAIL_CRYPTO_KEY
    ```
 
    ```dotenv
    # app/.env.local
    APP_ENV=prod
-   APP_SECRET=<wynik-openssl>
+   APP_SECRET=<wynik-openssl-1>
+   MAIL_CRYPTO_KEY=<wynik-openssl-2>
    ```
 
-   Ten plik jest gitignorowany. **Nie rotuj `APP_SECRET` bez powodu** — unieważnia podpisy
-   Live Components.
+   Ten plik jest gitignorowany. **Nie rotuj `APP_SECRET`** bez powodu (unieważnia podpisy
+   Live Components) ani **`MAIL_CRYPTO_KEY`** (bez re-encryptu istniejące poświadczenia IMAP
+   stają się nieodczytywalne).
 
 Po ustawieniu obu warstw wstań i zmigruj jak w sekcji „Pierwsze uruchomienie".
 

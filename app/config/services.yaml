@@ -19,5 +19,12 @@ services:
     App\:
         resource: '../src/'
 
+    # Klucz szyfrowania poświadczeń IMAP; public, bo pobiera go Kernel::boot()
+    # do wstrzyknięcia w EncryptedStringType (typ Doctrine bez własnego DI).
+    App\Security\CredentialEncryptor:
+        arguments:
+            $key: '%env(MAIL_CRYPTO_KEY)%'
+        public: true
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

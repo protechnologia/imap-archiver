@@ -82,9 +82,12 @@ dopiero, gdy import, archiwum i weryfikacja są pewne.
         enum `AuthType`) + many-to-many `User ↔ MailAccount` (właściciel: `MailAccount`,
         join table `mail_account_user` z `ON DELETE CASCADE`). ➜ działa: model kont w bazie,
         migracja przechodzi, `schema:validate` czysty. Poświadczenia (szyfrowane) — etap 1.4.
-  - [ ] Etap 1.4 — szyfrowanie poświadczeń at-rest (hasło/sekret szyfrowane, NIGDY plaintext;
-        pole typ auth: hasło vs OAuth2/XOAUTH2; klucz w sekretach).
-        ➜ działa: hasło konta nie leży jawnie w bazie.
+  - [x] Etap 1.4 — szyfrowanie poświadczeń at-rest. Pole `MailAccount.secret` (hasło lub
+        refresh_token wg `authType`) szyfrowane przezroczyście custom typem Doctrine
+        `encrypted_string` (libsodium `secretbox`, nonce per zapis, base64). Serwis
+        `CredentialEncryptor`, klucz `MAIL_CRYPTO_KEY`; typ rejestrowany i zasilany
+        encryptorem w `Kernel::boot()`. ➜ działa: w bazie leży szyfrogram, ORM zwraca
+        wartość jawną (round-trip zweryfikowany), `schema:validate` czysty.
   - [ ] Etap 1.5 — CRUD `MailAccount` w EasyAdmin + przypisywanie userów do kont.
         ➜ działa: admin zakłada konto IMAP i przydziela dostęp.
         (`Message`/`Attachment` powstają realnie przy imporcie — Etap 3.)
@@ -129,15 +132,20 @@ Aplikacja w dev: `http://localhost:8180` (FrankenPHP na `SERVER_NAME=":80"`, por
 ## Konfiguracja i sekrety
 
 - **Dwie warstwy `.env` — różne pliki, różni konsumenci.**
-  - **Warstwa Symfony:** `app/.env*` czyta Symfony (Dotenv, z hierarchią `.env.local` itd.).
-    Sekrety aplikacji (`APP_SECRET`, później `MAIL_CRYPTO_KEY`) → `app/.env.local`. `DATABASE_URL`
-    z `compose.yaml` (real env var) NADPISUJE ten z `app/.env` — wartość w `app/.env`
-    (host `127.0.0.1`) to tylko atrapa dla trybu non-Docker.
+  - **Warstwa Symfony:** `app/.env*` czyta Symfony (Dotenv, kolejność `.env` → `.env.$APP_ENV`
+    → `.env.local`). Sekrety aplikacji (`APP_SECRET`, `MAIL_CRYPTO_KEY`): jawna wartość **dev**
+    w commitowanym `app/.env.dev` (zero-config, dev używa atrap), realna wartość **prod** w
+    gitignorowanym `app/.env.local`; w `app/.env` pusty placeholder. `DATABASE_URL` z `compose.yaml`
+    (real env var) NADPISUJE ten z `app/.env` — wartość w `app/.env` (host `127.0.0.1`) to tylko
+    atrapa dla trybu non-Docker.
   - **Warstwa Compose:** root-owy `/.env` (obok `compose.yaml`) czyta **tylko** Docker Compose
     do podstawiania `${...}` — jeden plik, bez hierarchii, gitignorowany (szablon w commitowanym
     `.env.dist`). Sekret bazy (`DB_PASSWORD`, konsumowany przez kontener Postgresa **i** aplikację)
     → root `/.env`; default dev jest inline w `compose.yaml` jako `${DB_PASSWORD:-ChangeMe}`.
 - `APP_SECRET` trzymamy w sekrecie i nie rotujemy bez powodu (unieważnia podpisy Live Components).
+- **`MAIL_CRYPTO_KEY` (32 B hex) szyfruje `MailAccount.secret`** (libsodium `secretbox`). Klucz dev
+  ≠ prod. NIE rotować bez re-encryptu istniejących sekretów — stare szyfrogramy stają się
+  nieodczytywalne (`secretbox_open` zwróci false → wyjątek). Utrata klucza = utrata poświadczeń.
 - **`POSTGRES_PASSWORD` działa TYLKO przy pierwszej inicjalizacji wolumenu `database_data`.**
   Zmiana `DB_PASSWORD` przy istniejącej bazie NIE zmieni hasła już utworzonego Postgresa —
   trzeba zmienić je w samej bazie (`ALTER USER`) albo zresetować wolumen (`down -v`, kasuje dane).
@@ -145,6 +153,10 @@ Aplikacja w dev: `http://localhost:8180` (FrankenPHP na `SERVER_NAME=":80"`, por
 ## Gotchas — łatwo o tym zapomnieć
 
 - `ext-imap` wypada z core PHP → używamy `webklex/php-imap`.
+- Typ Doctrine `encrypted_string` rejestrujemy w `Kernel::boot()`, **nie** w `doctrine.yaml`
+  (`dbal.types`). Powód: musimy wstrzyknąć w instancję typu serwis `CredentialEncryptor`, a
+  rejestracja przez config nadpisuje (`overrideType`) instancję przy budowie połączenia i
+  zgubiłaby encryptor. Nie przenosić tego z powrotem do configu „dla porządku".
 - Worker mode (FrankenPHP) trzyma usługi w pamięci między żądaniami → nie przechowuj
   stanu żądania w usługach; stanowe usługi implementują `ResetInterface`, najlepiej trzymaj
   je bezstanowymi.

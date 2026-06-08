@@ -14,8 +14,8 @@ use Symfony\Component\Validator\Constraints as Assert;
 /**
  * Konto IMAP, z którego archiwizujemy pocztę.
  *
- * Etap 1.3 — sam model. Poświadczenia (hasło / refresh_token) dochodzą zaszyfrowane
- * w etapie 1.4, NIGDY w plaintext.
+ * Etap 1.3 — sam model. Etap 1.4 — poświadczenie (hasło / refresh_token) jako pole
+ * `secret`, szyfrowane at-rest przez typ `encrypted_string`, NIGDY w plaintext.
  */
 #[ORM\Entity(repositoryClass: MailAccountRepository::class)]
 class MailAccount
@@ -51,6 +51,14 @@ class MailAccount
 
     #[ORM\Column(enumType: AuthType::class)]
     private AuthType $authType = AuthType::Password;
+
+    /**
+     * Poświadczenie do IMAP zależne od `authType`: hasło (Password) lub refresh_token
+     * (Xoauth2). Szyfrowane at-rest typem `encrypted_string` — w bazie leży szyfrogram,
+     * w PHP wartość jawna. NIGDY nie wystawiać na liście/w logach.
+     */
+    #[ORM\Column(type: 'encrypted_string', nullable: true)]
+    private ?string $secret = null;
 
     /**
      * Użytkownicy z dostępem do podglądu tego konta (many-to-many).
@@ -141,6 +149,24 @@ class MailAccount
         $this->authType = $authType;
 
         return $this;
+    }
+
+    public function getSecret(): ?string
+    {
+        return $this->secret;
+    }
+
+    public function setSecret(?string $secret): static
+    {
+        $this->secret = $secret;
+
+        return $this;
+    }
+
+    /** Czy poświadczenie jest ustawione — bez ujawniania jego wartości. */
+    public function hasSecret(): bool
+    {
+        return $this->secret !== null && $this->secret !== '';
     }
 
     /**
