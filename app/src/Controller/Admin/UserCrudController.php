@@ -23,17 +23,27 @@ use Symfony\Component\Form\FormEvent;
 use Symfony\Component\Form\FormEvents;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
+/**
+ * Panel EasyAdmin dla encji User — zakładanie kont, edycja ról i reset hasła.
+ * Dostępny tylko dla ROLE_ADMIN (ograniczenie na poziomie dashboardu/security).
+ *
+ * Hasło nie jest polem encji w formularzu: zbieramy plaintext przez pole
+ * `password` (mapped=false) i hashujemy w listenerze POST_SUBMIT, więc do encji
+ * trafia już hash. Patrz addPasswordHashListener().
+ */
 class UserCrudController extends AbstractCrudController
 {
     public function __construct(private readonly UserPasswordHasherInterface $passwordHasher)
     {
     }
 
+    /** Encja obsługiwana przez ten CRUD (wymagane przez EasyAdmin). */
     public static function getEntityFqcn(): string
     {
         return User::class;
     }
 
+    /** Etykiety encji, tytuły stron i domyślne sortowanie listy (po e-mailu rosnąco). */
     public function configureCrud(Crud $crud): Crud
     {
         return $crud
@@ -45,6 +55,7 @@ class UserCrudController extends AbstractCrudController
             ->setDefaultSort(['email' => 'ASC']);
     }
 
+    /** Zmienia etykietę przycisku „Dodaj" i ustala kolejność akcji w wierszu listy. */
     public function configureActions(Actions $actions): Actions
     {
         return $actions
@@ -52,6 +63,10 @@ class UserCrudController extends AbstractCrudController
             ->reorder(Crud::PAGE_INDEX, [Action::EDIT, Action::DELETE]);
     }
 
+    /**
+     * Pola formularzy i list. Zależnie od strony ($pageName) renderujemy je inaczej:
+     * e-mail jako tekst vs EmailField, hasło tylko na formularzach itd.
+     */
     public function configureFields(string $pageName): iterable
     {
         yield IdField::new('id')->onlyOnIndex();
@@ -97,11 +112,13 @@ class UserCrudController extends AbstractCrudController
             ->onlyOnForms();
     }
 
+    /** Formularz dodawania — podpina listener hashujący hasło (patrz addPasswordHashListener()). */
     public function createNewFormBuilder(EntityDto $entityDto, KeyValueStore $formOptions, AdminContext $context): FormBuilderInterface
     {
         return $this->addPasswordHashListener(parent::createNewFormBuilder($entityDto, $formOptions, $context));
     }
 
+    /** Formularz edycji — ten sam listener; puste pole hasła = bez zmiany. */
     public function createEditFormBuilder(EntityDto $entityDto, KeyValueStore $formOptions, AdminContext $context): FormBuilderInterface
     {
         return $this->addPasswordHashListener(parent::createEditFormBuilder($entityDto, $formOptions, $context));
