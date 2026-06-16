@@ -148,3 +148,27 @@ docker compose exec php php bin/console doctrine:migrations:migrate
 docker compose down       # zatrzymuje, wolumeny zostają
 docker compose down -v    # UWAGA: kasuje wolumeny, w tym bazę
 ```
+
+## Ciekawostki techniczne
+
+Krótkie „dlaczego tak", które wychodzą przy budowie archiwizatora poczty.
+
+### Nie każdy mail ma `Message-ID` — i nie każdy `Message-ID` jest unikalny
+
+Mogłoby się wydawać, że `Message-ID` to idealny identyfikator wiadomości. Nie jest —
+zawodzi w obie strony:
+
+- **Bywa go brak.** Nagłówek `Message-ID` jest w normie (RFC 5322) **opcjonalny** —
+  „powinien być", nie „musi być". Zwykle dokłada go program nadawcy albo pierwszy serwer
+  po drodze, więc większość dostarczonych maili go ma. Ale skanując całą skrzynkę natkniesz
+  się na wyjątki: **szkice** (ID nadawany dopiero przy wysyłce), maile z **prostych skryptów
+  i automatów**, wiadomości **wgrane do skrzynki z importu** (`APPEND`), wreszcie **malformed
+  i spam**.
+- **Bywa zduplikowany.** Nawet gdy jest, norma tylko *zaleca* globalną unikalność. W praktyce
+  ten sam `Message-ID` potrafi się powtórzyć (maile wysłane ponownie, błędne serwery).
+
+Dlatego tożsamością wiadomości w tym projekcie jest **`sha256` surowych bajtów `.eml`** — zawsze
+obecny i naprawdę jednoznaczny (te same bajty = ten sam mail). To na nim stoi idempotencja importu
+(`UNIQUE(account_id, sha256)`): ponowny import nie zrobi duplikatu. `Message-ID` trzymamy obok
+(opcjonalnie, zindeksowany) — przydaje się do **cross-referencji**, np. wątkowania po
+`In-Reply-To`/`References`, ale nigdy do decyzji „czy tę wiadomość już mamy".

@@ -54,16 +54,33 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->mailAccounts = new ArrayCollection();
     }
 
+    /**
+     * Zwraca identyfikator użytkownika (null przed pierwszym zapisem).
+     *
+     * @return int|null Identyfikator, np. 7
+     */
     public function getId(): ?int
     {
         return $this->id;
     }
 
+    /**
+     * Zwraca adres e-mail użytkownika.
+     *
+     * @return string Adres e-mail, np. "protechnologia@gmail.com"
+     */
     public function getEmail(): string
     {
         return $this->email;
     }
 
+    /**
+     * Ustawia adres e-mail użytkownika.
+     *
+     * @param string $email Adres e-mail, np. "protechnologia@gmail.com"
+     *
+     * @return $this
+     */
     public function setEmail(string $email): static
     {
         $this->email = $email;
@@ -73,6 +90,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     /**
      * Identyfikator użytkownika w systemie security (tu: e-mail).
+     *
+     * @return string Identyfikator, np. "protechnologia@gmail.com"
      */
     public function getUserIdentifier(): string
     {
@@ -80,7 +99,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     }
 
     /**
-     * @return list<string>
+     * Zwraca role użytkownika (zawsze z co najmniej ROLE_USER).
+     *
+     * @return list<string> Role, np. ["ROLE_ADMIN", "ROLE_USER"]
      */
     public function getRoles(): array
     {
@@ -92,7 +113,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     }
 
     /**
-     * @param list<string> $roles
+     * Ustawia role użytkownika (bez dorzucania ROLE_USER — to robi getter).
+     *
+     * @param list<string> $roles Role, np. ["ROLE_ADMIN"]
+     *
+     * @return $this
      */
     public function setRoles(array $roles): static
     {
@@ -101,11 +126,23 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * Zwraca zahashowane hasło (nigdy plaintext).
+     *
+     * @return string Hash hasła, np. "$2y$13$abcdef…" (bcrypt)
+     */
     public function getPassword(): string
     {
         return $this->password;
     }
 
+    /**
+     * Ustawia zahashowane hasło (hashowanie robi warstwa security, nie ta metoda).
+     *
+     * @param string $password Hash hasła, np. "$2y$13$abcdef…" (bcrypt)
+     *
+     * @return $this
+     */
     public function setPassword(string $password): static
     {
         $this->password = $password;
@@ -122,13 +159,22 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     }
 
     /**
-     * @return Collection<int, MailAccount>
+     * Zwraca konta IMAP, do których użytkownik ma dostęp.
+     *
+     * @return Collection<int, MailAccount> Kolekcja, np. [MailAccount("Poczta firmowa eGIE")]
      */
     public function getMailAccounts(): Collection
     {
         return $this->mailAccounts;
     }
 
+    /**
+     * Przyznaje użytkownikowi dostęp do konta (idempotentnie) i synchronizuje stronę właścicielską.
+     *
+     * @param MailAccount $mailAccount Konto, np. MailAccount("Poczta firmowa eGIE")
+     *
+     * @return $this
+     */
     public function addMailAccount(MailAccount $mailAccount): static
     {
         if (!$this->mailAccounts->contains($mailAccount)) {
@@ -140,6 +186,13 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
+    /**
+     * Odbiera użytkownikowi dostęp do konta i synchronizuje stronę właścicielską.
+     *
+     * @param MailAccount $mailAccount Konto, np. MailAccount("Poczta firmowa eGIE")
+     *
+     * @return $this
+     */
     public function removeMailAccount(MailAccount $mailAccount): static
     {
         if ($this->mailAccounts->removeElement($mailAccount)) {
@@ -149,7 +202,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    /** Etykieta użytkownika w UI (EasyAdmin, listy wyboru relacji) — adres e-mail. */
+    /**
+     * Etykieta użytkownika w UI (EasyAdmin, listy wyboru relacji) — adres e-mail.
+     *
+     * @return string Adres e-mail, np. "protechnologia@gmail.com"
+     */
     public function __toString(): string
     {
         return $this->email ?? '';

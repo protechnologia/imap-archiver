@@ -121,15 +121,20 @@ dopiero, gdy import, archiwum i weryfikacja są pewne.
         liczymy nad bajtami z B.** W 3.3 po pobraniu B raz wyprowadzamy WSZYSTKIE pola `Message`/
         `Attachment` przez `Message::fromString($raw)` na tych samych zapisanych bajtach — DB
         odzwierciedla dokładnie to, co leży w `.eml`.
-  - [ ] Etap 3.1 — model danych: `Message` + `Attachment` + migracja. `Message`: `account`
+  - [x] Etap 3.1 — model danych: `Message` + `Attachment` + migracja. `Message`: `account`
         (ManyToOne→`MailAccount`, FK `account_id`), `folder`, `messageId`, `subject`, `fromName`,
-        `fromEmail`, `date`, `size`, `sha256`, `hasAttachments`, `verified`, `body`, `imapUid`,
-        `archivePath` (ścieżka względna do pliku). `Attachment`: `message` (ManyToOne→`Message`),
-        `filename`, `mimeType`, `size`, opcjonalnie `sha256` (metadane w DB; bajty zostają w `.eml`,
-        nie duplikujemy na dysk). Idempotencja: `UNIQUE(account_id, message_id, sha256)`. Maile bez
-        `Message-ID` (rzadkie): fallback (np. sha256 jako klucz) — do ustalenia tu. `schema:validate`
-        czysty. (UWAGA: to NIE jest M2M — Message↔Account i Attachment↔Message to ManyToOne; stroną
-        właścicielską jest strona „wiele", trzymająca FK.)
+        `fromEmail`, `date` (kolumna `sent_at` — unikamy słowa kluczowego `date`), `size`, `sha256`,
+        `hasAttachments`, `verified`, `body`, `imapUid`, `archivePath` (ścieżka względna do pliku).
+        `Attachment`: `message` (ManyToOne→`Message`, FK `ON DELETE CASCADE`), `filename`, `mimeType`,
+        `size`, opcjonalnie `sha256` (metadane w DB; bajty zostają w `.eml`, nie duplikujemy na dysk).
+        ➜ **Idempotencja: `UNIQUE(account_id, sha256)`** — ODSTĘPSTWO od pierwotnego `(account_id,
+        message_id, sha256)`: `message_id` bywa NULL (w Postgresie `NULL ≠ NULL` → nie nadawałby się
+        na klucz), a `sha256` surowego `.eml` jest zawsze obecny i to ON jest tożsamością treści. Te
+        same bajty = ten sam wpis; `message_id` zostaje nullable + zindeksowany do cross-referencji.
+        FK `message→mail_account` BEZ cascade (guard: nie skasujesz konta z zarchiwizowanymi mailami).
+        Indeksy: `(account_id, sent_at)` pod listę, `message_id`. ➜ działa: migracja przeszła,
+        `schema:validate` czysty (mapping + sync). (UWAGA: to NIE jest M2M — Message↔Account i
+        Attachment↔Message to ManyToOne; stroną właścicielską jest strona „wiele", trzymająca FK.)
   - [ ] Etap 3.2 — magazyn archiwum: bind mount POZA repo + serwis `ArchiveStorage`. Surowe `.eml`
         = źródło prawdy → bind mount do katalogu hosta, NIE nazwany wolumen (ginie przy `down -v`)
         i NIE wewnątrz repo (`git clean -fdx` kasuje też ignorowane). Katalog-sibling na ext4 WSL,
@@ -148,7 +153,16 @@ dopiero, gdy import, archiwum i weryfikacja są pewne.
         bezpiecznego kasowania z etapu 6: jest w DB + jest plik + checksum się zgadza). Komenda
         `app:archive:import --account=<id> --year=<rok> [--dry-run]` z podsumowaniem (pobrane /
         pominięte-duplikaty / błędy / zweryfikowane). Poza zakresem etapu 3: async/progress (etap 4),
-        podgląd (5), JAKIEKOLWIEK kasowanie z serwera (6) — tu tylko `verified`, zero `\Deleted`.
+        podgląd DLA UŻYTKOWNIKÓW (5), JAKIEKOLWIEK kasowanie z serwera (6) — tu tylko `verified`,
+        zero `\Deleted`.
+  - [ ] Etap 3.4 — diagnostyczny podgląd `Message` w EasyAdmin (`MessageCrudController`),
+        **read-only**. Po imporcie (3.3) admin ogląda zaimportowane wiadomości: temat, nadawca
+        (`fromName`/`fromEmail`), data, rozmiar, `sha256`, `verified`, `hasAttachments`, folder,
+        konto; w detalu lista `Attachment` (metadane: nazwa, MIME, rozmiar). Tylko `index` + `detail`,
+        BEZ `new/edit/delete` (`Message` to indeks — edycja bez sensu; kasowanie zarchiwizowanej
+        poczty to etap 6 z audytem). To NIE jest podgląd dla użytkowników (trójpanelowy Twig/UX +
+        Voter + sandbox iframe) — ten zostaje Etapem 5; 3.4 to tani „wgląd admina" w efekt importu,
+        zanim powstanie pełny front. Treść maila renderujemy dopiero w etapie 5 (tu bez body/iframe).
 - [ ] Etap 4 — async (Messenger) + skala + progress.
 - [ ] Etap 5 — podgląd dla użytkowników (Twig/UX trójpanelowy, Voter, sandbox iframe).
 - [ ] Etap 6 — bezpieczne usuwanie (weryfikacja + potwierdzenie + EXPUNGE + audyt).
