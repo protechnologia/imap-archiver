@@ -106,6 +106,49 @@ dopiero, gdy import, archiwum i weryfikacja są pewne.
       nieistniejące ID, nieudane połączenie) raportowane czytelnie; `lint:container` czysty. Happy-path
       do potwierdzenia na realnym serwerze IMAP. Żadnego zapisu `.eml`/`Message` — to Etap 3.
 - [ ] Etap 3 — import synchroniczny, mały zakres (`.eml` + DB, idempotentnie).
+      Komenda `app:archive:import --account=<id> --year=<rok>`: pobiera maile z roku, zapisuje
+      surowy `.eml` (źródło prawdy) + `sha256`, indeksuje `Message` w DB, oznacza `verified`.
+      Synchronicznie (Messenger dopiero etap 4), read-only wobec skrzynki.
+  - [x] Etap 3.0 — spike pobrania bajtowo-wiernego `.eml` (komenda `app:imap:spike-raw`). webklex
+        `getRawBody()` zwraca tylko *body* (`structure->raw`), nie pełny RFC822. Porównano (A)
+        `header->raw . "\r\n\r\n" . getRawBody()` vs (B) surowy `UID FETCH <uid> BODY.PEEK[]`.
+        ➜ **DECYZJA: bierzemy B.** Na koncie 67 (2 maile, w tym jeden z 2 załącznikami) A i B wyszły
+        **bajtowo identyczne** (ten sam `sha256`, oba re-parsują się czysto przez `Message::fromString`,
+        zgodny Message-ID/temat/#załączników) — co potwierdza, że nic się nie gubi. Mimo to docelowo
+        B, bo: (1) to dosłownie źródło z serwera — równość A==B bywa przypadkowa, B nie ma jak się
+        rozjechać przy nietypowych kodowaniach/końcach linii; (2) B (PEEK) nie rusza flag, a ścieżka
+        A pobiera body przez `BODY[TEXT]` → ustawia `\Seen` (zob. gotcha o `leaveUnread`). **`sha256`
+        liczymy nad bajtami z B.** W 3.3 po pobraniu B raz wyprowadzamy WSZYSTKIE pola `Message`/
+        `Attachment` przez `Message::fromString($raw)` na tych samych zapisanych bajtach — DB
+        odzwierciedla dokładnie to, co leży w `.eml`.
+  - [ ] Etap 3.1 — model danych: `Message` + `Attachment` + migracja. `Message`: `account`
+        (ManyToOne→`MailAccount`, FK `account_id`), `folder`, `messageId`, `subject`, `fromName`,
+        `fromEmail`, `date`, `size`, `sha256`, `hasAttachments`, `verified`, `body`, `imapUid`,
+        `archivePath` (ścieżka względna do pliku). `Attachment`: `message` (ManyToOne→`Message`),
+        `filename`, `mimeType`, `size`, opcjonalnie `sha256` (metadane w DB; bajty zostają w `.eml`,
+        nie duplikujemy na dysk). Idempotencja: `UNIQUE(account_id, message_id, sha256)`. Maile bez
+        `Message-ID` (rzadkie): fallback (np. sha256 jako klucz) — do ustalenia tu. `schema:validate`
+        czysty. (UWAGA: to NIE jest M2M — Message↔Account i Attachment↔Message to ManyToOne; stroną
+        właścicielską jest strona „wiele", trzymająca FK.)
+  - [ ] Etap 3.2 — magazyn archiwum: bind mount POZA repo + serwis `ArchiveStorage`. Surowe `.eml`
+        = źródło prawdy → bind mount do katalogu hosta, NIE nazwany wolumen (ginie przy `down -v`)
+        i NIE wewnątrz repo (`git clean -fdx` kasuje też ignorowane). Katalog-sibling na ext4 WSL,
+        wskazany zmienną `ARCHIVE_HOST_DIR` (root `/.env`) → mount `${ARCHIVE_HOST_DIR}:/archive`
+        w `compose.yaml`, `ARCHIVE_DIR=/archive` w kontenerze. `ArchiveStorage`: zapis w układzie
+        `<accountId>/<rok>/<mm>/<sha256>.eml`, zapis atomowy (temp+rename), `sha256` nad dokładnie
+        tym, co zapisano, zwrot ścieżki względnej. Nazwa pliku = sha256 → naturalna deduplikacja
+        i weryfikowalność. Backup `ARCHIVE_HOST_DIR` = obowiązek operacyjny (DB odbudujemy z archiwum,
+        nigdy odwrotnie). Uprawnienia/UID procesu w kontenerze sprawdzić przy pierwszym zapisie.
+  - [ ] Etap 3.3 — pipeline importu: serwis `ImapImporter` + komenda. SEARCH po zakresie roku
+        (`->whereSince()` + górna granica; NIE pusty query — patrz gotcha o pustym SEARCH; uwaga na
+        strefę czasową przy granicy roku), `leaveUnread()` + `BODY.PEEK[]` (read-only, bez `\Seen`).
+        Per mail: surowe źródło → `sha256` → idempotencja (jest `Message (account, messageId, sha256)`?
+        pomiń) → `ArchiveStorage::store()` → `Message`+`Attachment` z nagłówków → flush. Weryfikacja:
+        odczyt pliku z dysku, przelicz `sha256`, zgodne → `verified=true` (realizuje warunek
+        bezpiecznego kasowania z etapu 6: jest w DB + jest plik + checksum się zgadza). Komenda
+        `app:archive:import --account=<id> --year=<rok> [--dry-run]` z podsumowaniem (pobrane /
+        pominięte-duplikaty / błędy / zweryfikowane). Poza zakresem etapu 3: async/progress (etap 4),
+        podgląd (5), JAKIEKOLWIEK kasowanie z serwera (6) — tu tylko `verified`, zero `\Deleted`.
 - [ ] Etap 4 — async (Messenger) + skala + progress.
 - [ ] Etap 5 — podgląd dla użytkowników (Twig/UX trójpanelowy, Voter, sandbox iframe).
 - [ ] Etap 6 — bezpieczne usuwanie (weryfikacja + potwierdzenie + EXPUNGE + audyt).
@@ -183,6 +226,14 @@ Eksploratora Windows pod `\\wsl.localhost\dev-edor-gw\root\projects\imap-archive
   `\Seen`. Żeby NIE mutować skrzynki (krytyczne dla archiwizatora), w query woła się `->leaveUnread()`
   (+ `->setFetchBody(false)` gdy potrzebne tylko nagłówki). `app:imap:ping` tak robi; pamiętać o tym
   też przy imporcie (etap 3).
+- **UWAGA: `leaveUnread()` NIE pobiera przez PEEK — robi set-then-unset.** Body w Query leci przez
+  `BODY[TEXT]` (ustawia `\Seen`), a `Message::peek()` zdejmuje flagę dopiero PO fakcie (`unsetFlag("Seen")`,
+  dodatkowy `STORE`). Netto unseen zostaje unseen, ale to nie jest atomowy read-only. W etapie 2 ping
+  był czysty głównie dlatego, że NIE pobierał body (`setFetchBody(false)`), a nie dzięki `leaveUnread()`.
+  Dlatego import (etap 3.3) pobiera surowe źródło przez własny `UID FETCH <uid> BODY.PEEK[]` (decyzja
+  spike’u 3.0) — `BODY.PEEK[]` nie dotyka `\Seen` w ogóle. Webklex zwraca PEEK w odpowiedzi jako `BODY[]`;
+  przy jednym itemie matcher tego nie dopasuje (rzuca „single id was not found") — wołać z wieloma itemami
+  `['UID', 'BODY.PEEK[]']` i czytać `validatedData()[$uid]['BODY[]']`.
 - **Pusty `query()` = `UID SEARCH` bez parametrów → niektóre serwery odpowiadają `BAD ... Missing
   search parameters`** (potwierdzone na nazwa.pl). webklex NIE dokleja domyślnego `ALL`. Zawsze podać
   kryterium: `->whereAll()` (jak w `app:imap:ping`) albo konkretne `->whereSince()/->whereOn()` po
@@ -203,7 +254,9 @@ Eksploratora Windows pod `\\wsl.localhost\dev-edor-gw\root\projects\imap-archive
   bezstanowości piszemy już teraz, żeby kod był gotowy na worker.
 - `EntityManager` w długo żyjącym workerze: pamiętać o `clear()` i obsłudze zamkniętego EM.
 - `docker compose down -v` KASUJE nazwane wolumeny — w tym bazę. Bez `-v` wolumeny zostają.
-- Surowe archiwum `.eml` będzie potrzebowało własnego, osobnego wolumenu — dodać przy etapie 3.
+- Surowe archiwum `.eml` (źródło prawdy) idzie na **bind mount do katalogu hosta POZA repo**
+  (`ARCHIVE_HOST_DIR`), nie na nazwany wolumen — nazwany wolumen ginie przy `down -v`, a katalog
+  wewnątrz repo skasowałby `git clean -fdx`. Szczegóły w planie etapu 3.2.
 - `var/` (cache, logi, profiler, build Tailwinda) jedzie z bind-mountu `./app:/app` na ext4 WSL —
   szybki filesystem, bez osobnego wolumenu. Build Tailwinda siedzi w `./app/var/tailwind/` i jest trwały;
   kasuje go tylko ręczny reset `var/` → wtedy `tailwind:build -m` ponownie.
