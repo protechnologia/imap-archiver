@@ -21,10 +21,11 @@ Plan etapów, architektura i zasady projektu: zobacz [`CLAUDE.md`](./CLAUDE.md).
 - EasyAdmin
 - Docker
 
-## Pierwsze uruchomienie
+## Pierwsze uruchomienie (dev)
 
 > To ścieżka **dev** — działa bez żadnej konfiguracji. Na produkcji najpierw ustaw sekrety
-> (zobacz [Konfiguracja i sekrety](#konfiguracja-i-sekrety)), dopiero potem te kroki.
+> (zobacz [Konfiguracja i sekrety](#konfiguracja-i-sekrety) i [Produkcja — krok po kroku](#produkcja--krok-po-kroku)),
+> dopiero potem te kroki.
 
 1. **Zbuduj i wstań:**
 
@@ -69,7 +70,16 @@ Sekrety dzielą się na dwie warstwy, bo czytają je dwa różne procesy:
 **Dev działa bez dodatkowej konfiguracji** — `compose.yaml` ma wbudowany default
 `${DB_PASSWORD:-ChangeMe}`, a `APP_SECRET` nie jest krytyczny lokalnie. Nic nie zakładasz.
 
-### Produkcja — krok po kroku
+| Ustawienie | Gdzie ustawić | Opis |
+| --- | --- | --- |
+| `APP_SECRET` | `app/.env.local` (prod) / `app/.env.dev` (dev) | Sekret Symfony — podpisuje m.in. `LiveProp` i ciasteczka sesji. Nie rotować bez powodu (unieważnia podpisy). |
+| `MAIL_CRYPTO_KEY` | `app/.env.local` (prod) / `app/.env.dev` (dev) | Klucz 32 B hex szyfrujący `MailAccount.secret` at-rest (libsodium). Rotacja bez re-encryptu = utrata poświadczeń IMAP. |
+| `IMAP_VALIDATE_CERT` | `app/.env` (default `1`), override w `app/.env.local` | Walidacja certyfikatu TLS serwera IMAP. `0` tylko dla self-signed cert w dev. |
+| `DB_PASSWORD` | root `/.env` (prod) / default `ChangeMe` w `compose.yaml` (dev) | Hasło Postgresa — czytane przez kontener bazy i wstrzykiwane do `DATABASE_URL` aplikacji. Warstwa Compose. |
+| `DATABASE_URL` | `compose.yaml` (real env var; nadpisuje `app/.env`) | DSN połączenia z bazą. Wartość w `app/.env` to tylko atrapa dla trybu non-Docker. |
+| `APP_ENV` | `app/.env` (`dev`) / `app/.env.local` (`prod`) | Środowisko Symfony (`dev`/`prod`). |
+
+## Produkcja — krok po kroku
 
 Te kroki wykonaj **przed** `docker compose up` — sekrety muszą istnieć, zanim wstaną kontenery.
 
@@ -107,7 +117,8 @@ Te kroki wykonaj **przed** `docker compose up` — sekrety muszą istnieć, zani
    Live Components) ani **`MAIL_CRYPTO_KEY`** (bez re-encryptu istniejące poświadczenia IMAP
    stają się nieodczytywalne).
 
-Po ustawieniu obu warstw wstań i zmigruj jak w sekcji „Pierwsze uruchomienie".
+Po ustawieniu obu warstw wstań i zmigruj jak w sekcji „Pierwsze uruchomienie (dev)"
+(kroki budowania, migracji i Tailwinda są wspólne).
 
 ## Struktura katalogu
 

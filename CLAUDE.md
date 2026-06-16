@@ -96,7 +96,15 @@ dopiero, gdy import, archiwum i weryfikacja są pewne.
         ➜ działa: admin zakłada konto IMAP i przydziela dostęp; w bazie szyfrogram, pusty `secret`
         nie kasuje hasła, przypisania w `mail_account_user` (zweryfikowane).
         (`Message`/`Attachment` powstają realnie przy imporcie — Etap 3.)
-- [ ] Etap 2 — spike połączenia IMAP (CLI). BLOKADA: wymaga decyzji o dostawcy poczty.
+- [x] Etap 2 — spike połączenia IMAP (CLI). Decyzja o dostawcy: **własny IMAP + hasło** na start
+      (XOAUTH2 odłożone na osobny podetap). Biblioteka `webklex/php-imap` (v6). Serwis
+      `ImapConnectionFactory` buduje POŁĄCZONEGO klienta z `MailAccount` (host/port/login + `secret`
+      deszyfrowany przez ORM); szyfrowanie z portu (993→ssl, 143→tls); `validate_cert` z
+      `IMAP_VALIDATE_CERT`. Komenda `app:imap:ping --account=<id> [--limit=N]` listuje foldery,
+      EXAMINE skonfigurowanego folderu i nagłówki najnowszych wiadomości. READ-ONLY (`leaveUnread()`,
+      bez fetch body, bez zmiany flag, nic nie kasuje). ➜ działa: ścieżki błędów (brak/zły `--account`,
+      nieistniejące ID, nieudane połączenie) raportowane czytelnie; `lint:container` czysty. Happy-path
+      do potwierdzenia na realnym serwerze IMAP. Żadnego zapisu `.eml`/`Message` — to Etap 3.
 - [ ] Etap 3 — import synchroniczny, mały zakres (`.eml` + DB, idempotentnie).
 - [ ] Etap 4 — async (Messenger) + skala + progress.
 - [ ] Etap 5 — podgląd dla użytkowników (Twig/UX trójpanelowy, Voter, sandbox iframe).
@@ -119,6 +127,9 @@ docker compose exec php php bin/console app:user:create <email> [hasło] [--admi
 # front: build CSS Tailwind (od etapu 1; v4, bez Node)
 docker compose exec php php bin/console tailwind:build [-m] [--watch]
 
+# spike połączenia IMAP (od etapu 2) — read-only, listuje foldery + nagłówki najnowszych
+docker compose exec php php bin/console app:imap:ping --account=<id> [--limit=N]
+
 # import (od etapu 3)
 docker compose exec php php bin/console app:archive:import --account=<id> --year=<rok>
 
@@ -134,8 +145,9 @@ Eksploratora Windows pod `\\wsl.localhost\dev-edor-gw\root\projects\imap-archive
 
 ## Otwarte decyzje
 
-- **Dostawca poczty:** własny serwer IMAP z hasłem vs Gmail / M365 (OAuth2/XOAUTH2).
-  Realnie zmienia warstwę uwierzytelniania — blokuje etap 2.
+- ~~**Dostawca poczty:**~~ ROZSTRZYGNIĘTE (etap 2): **własny serwer IMAP z hasłem** na start
+  (`AuthType::Password`). Gmail / M365 (OAuth2/XOAUTH2) odłożone na osobny podetap — `AuthType::Xoauth2`
+  już istnieje w enumie, `ImapConnectionFactory` świadomie odrzuca je wyjątkiem do czasu implementacji.
 - **Baza:** Postgres (zdecydowane). MySQL jako znana alternatywa, gdyby zaszła potrzeba.
 
 ## Konfiguracja i sekrety
@@ -155,13 +167,29 @@ Eksploratora Windows pod `\\wsl.localhost\dev-edor-gw\root\projects\imap-archive
 - **`MAIL_CRYPTO_KEY` (32 B hex) szyfruje `MailAccount.secret`** (libsodium `secretbox`). Klucz dev
   ≠ prod. NIE rotować bez re-encryptu istniejących sekretów — stare szyfrogramy stają się
   nieodczytywalne (`secretbox_open` zwróci false → wyjątek). Utrata klucza = utrata poświadczeń.
+- **`IMAP_VALIDATE_CERT` to NIE sekret, tylko flaga zachowania** (warstwa Symfony). Jawny default
+  `1` w commitowanym `app/.env` (prod-safe: wymagaj poprawnego cert). Wyłączamy do `0` w
+  gitignorowanym `app/.env.local` tylko przy serwerze IMAP z self-signed cert w dev. Konsumuje ją
+  `ImapConnectionFactory` (`%env(bool:IMAP_VALIDATE_CERT)%`).
 - **`POSTGRES_PASSWORD` działa TYLKO przy pierwszej inicjalizacji wolumenu `database_data`.**
   Zmiana `DB_PASSWORD` przy istniejącej bazie NIE zmieni hasła już utworzonego Postgresa —
   trzeba zmienić je w samej bazie (`ALTER USER`) albo zresetować wolumen (`down -v`, kasuje dane).
 
 ## Gotchas — łatwo o tym zapomnieć
 
-- `ext-imap` wypada z core PHP → używamy `webklex/php-imap`.
+- `ext-imap` wypada z core PHP → używamy `webklex/php-imap` (v6). Uwaga: ciągnie zależności
+  `illuminate/*` (kawałki Laravela) + `nesbot/carbon` — to normalne, nie pomyłka.
+- **IMAP read-only naprawdę read-only:** webklex domyślnie przy pobraniu wiadomości ustawia flagę
+  `\Seen`. Żeby NIE mutować skrzynki (krytyczne dla archiwizatora), w query woła się `->leaveUnread()`
+  (+ `->setFetchBody(false)` gdy potrzebne tylko nagłówki). `app:imap:ping` tak robi; pamiętać o tym
+  też przy imporcie (etap 3).
+- **Pusty `query()` = `UID SEARCH` bez parametrów → niektóre serwery odpowiadają `BAD ... Missing
+  search parameters`** (potwierdzone na nazwa.pl). webklex NIE dokleja domyślnego `ALL`. Zawsze podać
+  kryterium: `->whereAll()` (jak w `app:imap:ping`) albo konkretne `->whereSince()/->whereOn()` po
+  dacie. Dotyczy też SEARCH po dacie w imporcie (etap 3).
+- **Szyfrowanie IMAP wnioskujemy z portu** w `ImapConnectionFactory`: 143→`tls` (STARTTLS), wszystko
+  inne (w tym 993)→`ssl`. Gdyby pojawił się serwer wymagający innej kombinacji — dołożyć jawne pole,
+  nie kombinować z portem. (Walidacja cert: flaga `IMAP_VALIDATE_CERT`, opisana w „Konfiguracja i sekrety".)
 - Typ Doctrine `encrypted_string` rejestrujemy w `Kernel::boot()`, **nie** w `doctrine.yaml`
   (`dbal.types`). Powód: musimy wstrzyknąć w instancję typu serwis `CredentialEncryptor`, a
   rejestracja przez config nadpisuje (`overrideType`) instancję przy budowie połączenia i

@@ -22,7 +22,8 @@
         "symfony/security-bundle": "7.4.*",
         "symfony/twig-bundle": "7.4.*",
         "symfony/yaml": "7.4.*",
-        "symfonycasts/tailwind-bundle": "^0.13.0"
+        "symfonycasts/tailwind-bundle": "^0.13.0",
+        "webklex/php-imap": "^6.2"
     },
     "config": {
         "allow-plugins": {
