@@ -77,6 +77,8 @@ Sekrety dzielą się na dwie warstwy, bo czytają je dwa różne procesy:
 | `IMAP_VALIDATE_CERT` | `app/.env` (default `1`), override w `app/.env.local` | Walidacja certyfikatu TLS serwera IMAP. `0` tylko dla self-signed cert w dev. |
 | `DB_PASSWORD` | root `/.env` (prod) / default `ChangeMe` w `compose.yaml` (dev) | Hasło Postgresa — czytane przez kontener bazy i wstrzykiwane do `DATABASE_URL` aplikacji. Warstwa Compose. |
 | `DATABASE_URL` | `compose.yaml` (real env var; nadpisuje `app/.env`) | DSN połączenia z bazą. Wartość w `app/.env` to tylko atrapa dla trybu non-Docker. |
+| `ARCHIVE_HOST_DIR` | root `/.env` (prod) / default `../imap-archive` w `compose.yaml` (dev) | Katalog **na hoście**, gdzie fizycznie leżą surowe `.eml` (źródło prawdy) — to backupujesz. Lewa strona bind mountu. Warstwa Compose. Trzymaj POZA repo. |
+| `ARCHIVE_DIR` | `compose.yaml` (real env var; nadpisuje `app/.env`) | Katalog archiwum **w kontenerze** (`/archive`), który widzi aplikacja. Prawa strona bind mountu. Wartość w `app/.env` to tylko atrapa dla trybu non-Docker. |
 | `APP_ENV` | `app/.env` (`dev`) / `app/.env.local` (`prod`) | Środowisko Symfony (`dev`/`prod`). |
 
 ## Produkcja — krok po kroku
@@ -172,3 +174,33 @@ obecny i naprawdę jednoznaczny (te same bajty = ten sam mail). To na nim stoi i
 (`UNIQUE(account_id, sha256)`): ponowny import nie zrobi duplikatu. `Message-ID` trzymamy obok
 (opcjonalnie, zindeksowany) — przydaje się do **cross-referencji**, np. wątkowania po
 `In-Reply-To`/`References`, ale nigdy do decyzji „czy tę wiadomość już mamy".
+
+### Archiwum `.eml` to bind mount do katalogu hosta, nie wolumen Dockera
+
+Surowe `.eml` to **źródło prawdy** — bazę odbudujemy z archiwum, nigdy odwrotnie. Dlatego nie
+trzymamy ich w nazwanym wolumenie Dockera ani wewnątrz repo, tylko na **bind mouncie do katalogu
+hosta poza repo** (`ARCHIVE_HOST_DIR`). Powody:
+
+- **`docker compose down -v` kasuje nazwane wolumeny.** Jedno nieuważne `-v` i źródło prawdy
+  znika. Bind mount do katalogu hosta to przeżywa.
+- **`git clean -fdx` kasuje pliki ignorowane** — w tym katalog archiwum, gdyby leżał w repo.
+  Sibling poza repo jest poza zasięgiem.
+- **Backup i wgląd są trywialne** — to zwykłe pliki na dysku hosta: `rsync`, `cp`, `grep`,
+  `sha256sum` działają wprost, bez `docker cp` czy kontenera-pomocnika.
+
+Aplikacja nie zna ścieżki hosta — pisze zawsze do `/archive` (`ARCHIVE_DIR`). Dzięki temu na
+produkcji przełożysz archiwum na inny dysk/NAS zmianą jednej zmiennej, bez dotykania kodu.
+
+### Zapis `.eml` jest atomowy: najpierw `*.tmp`, potem `rename`
+
+Zapis do archiwum idzie przez `Filesystem::dumpFile()`, które pisze do pliku tymczasowego w tym
+samym katalogu i dopiero robi `rename`. `rename` w obrębie jednego systemu plików jest **atomowy**
+(POSIX): docelowa ścieżka w jednej chwili przeskakuje na kompletny plik — nikt nigdy nie zobaczy
+pliku zapisanego w połowie.
+
+Gdybyśmy pisali wprost do `<sha256>.eml`, przerwanie w trakcie (crash, ubity kontener, pełny dysk)
+zostawiłoby **obcięty plik pod kanoniczną ścieżką** — nazwa mówi „sha256 = X", a bajty hashują się
+na coś innego. Uszkodzone źródło prawdy dokładnie tam, gdzie ma leżeć prawda. Przy `temp + rename`
+crash zostawia co najwyżej osierocony `*.tmp` (nieszkodliwy), a kanoniczny plik pojawia się dopiero
+kompletny. Warunek: temp musi być na tym samym FS co cel (stąd „w tym samym katalogu") — inaczej
+`rename` degeneruje się do nieatomowego kopiowania.

@@ -15,11 +15,18 @@ services:
       # Hasło z root-owego /.env (gitignore) jako ${DB_PASSWORD}; w dev default = ChangeMe.
       # Ta sama wartość zasila POSTGRES_PASSWORD niżej — jedno źródło, obie strony spójne.
       DATABASE_URL: "postgresql://app:${DB_PASSWORD:-ChangeMe}@database:5432/app?serverVersion=16&charset=utf8"
+      # Katalog archiwum surowych .eml WIDZIANY W KONTENERZE (host po lewej stronie mountu —
+      # zob. ARCHIVE_HOST_DIR niżej). Stały; aplikacja nie zna ścieżki hosta.
+      ARCHIVE_DIR: "/archive"
     volumes:
       - ./app/:/app
       # var/ (cache, logi, profiler) jedzie z bind-mountu ./app na ext4 WSL — szybki
       # filesystem, więc osobny nazwany wolumen na var/ nie jest już potrzebny (relikt
       # z czasów /mnt/c, gdzie profiler timeoutował na wolnym bind-mouncie Windows).
+      # Źródło prawdy (.eml) na BIND MOUNCIE do katalogu hosta POZA repo — przeżywa
+      # `down -v` (to nie nazwany wolumen) i `git clean -fdx` (to poza repo). Dev default:
+      # sibling ../imap-archive; prod: realny dysk przez ARCHIVE_HOST_DIR w root /.env.
+      - ${ARCHIVE_HOST_DIR:-../imap-archive}:/archive
       - ./frankenphp/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config

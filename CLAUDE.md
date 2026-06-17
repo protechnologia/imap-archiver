@@ -135,15 +135,19 @@ dopiero, gdy import, archiwum i weryfikacja są pewne.
         Indeksy: `(account_id, sent_at)` pod listę, `message_id`. ➜ działa: migracja przeszła,
         `schema:validate` czysty (mapping + sync). (UWAGA: to NIE jest M2M — Message↔Account i
         Attachment↔Message to ManyToOne; stroną właścicielską jest strona „wiele", trzymająca FK.)
-  - [ ] Etap 3.2 — magazyn archiwum: bind mount POZA repo + serwis `ArchiveStorage`. Surowe `.eml`
+  - [x] Etap 3.2 — magazyn archiwum: bind mount POZA repo + serwis `ArchiveStorage`. Surowe `.eml`
         = źródło prawdy → bind mount do katalogu hosta, NIE nazwany wolumen (ginie przy `down -v`)
         i NIE wewnątrz repo (`git clean -fdx` kasuje też ignorowane). Katalog-sibling na ext4 WSL,
-        wskazany zmienną `ARCHIVE_HOST_DIR` (root `/.env`) → mount `${ARCHIVE_HOST_DIR}:/archive`
-        w `compose.yaml`, `ARCHIVE_DIR=/archive` w kontenerze. `ArchiveStorage`: zapis w układzie
-        `<accountId>/<rok>/<mm>/<sha256>.eml`, zapis atomowy (temp+rename), `sha256` nad dokładnie
-        tym, co zapisano, zwrot ścieżki względnej. Nazwa pliku = sha256 → naturalna deduplikacja
-        i weryfikowalność. Backup `ARCHIVE_HOST_DIR` = obowiązek operacyjny (DB odbudujemy z archiwum,
-        nigdy odwrotnie). Uprawnienia/UID procesu w kontenerze sprawdzić przy pierwszym zapisie.
+        wskazany zmienną `ARCHIVE_HOST_DIR` (root `/.env`; dev default `../imap-archive`) → mount
+        `${ARCHIVE_HOST_DIR}:/archive` w `compose.yaml`, `ARCHIVE_DIR=/archive` w kontenerze.
+        `ArchiveStorage::store()`: układ `<accountId>/<rok>/<mm>/<sha256>.eml`, zapis ATOMOWY przez
+        `Filesystem::dumpFile()` (temp+rename), `sha256` nad dokładnie tym, co zapisano, zwrot
+        `ArchivedFile(relativePath, sha256, size)`; idempotentnie po treści (jest plik o tym sha256 →
+        nie nadpisuje). `path()`/`read()` (z guardem path-traversal) do weryfikacji w 3.3. Nazwa
+        pliku = sha256 → naturalna deduplikacja i weryfikowalność. ➜ działa: mount widoczny (`/archive`
+        root-owy), `lint:container` czysty, smoke (zapis→sha256→read round-trip→idempotencja)
+        potwierdzony, plik fizycznie na hoście, host-owy `sha256sum` = nazwa pliku. Backup
+        `ARCHIVE_HOST_DIR` = obowiązek operacyjny. Pliki root-owe (kontener=root) — na prod uwzględnić.
   - [ ] Etap 3.3 — pipeline importu: serwis `ImapImporter` + komenda. SEARCH po zakresie roku
         (`->whereSince()` + górna granica; NIE pusty query — patrz gotcha o pustym SEARCH; uwaga na
         strefę czasową przy granicy roku), `leaveUnread()` + `BODY.PEEK[]` (read-only, bez `\Seen`).
@@ -231,6 +235,14 @@ Eksploratora Windows pod `\\wsl.localhost\dev-edor-gw\root\projects\imap-archive
 - **`POSTGRES_PASSWORD` działa TYLKO przy pierwszej inicjalizacji wolumenu `database_data`.**
   Zmiana `DB_PASSWORD` przy istniejącej bazie NIE zmieni hasła już utworzonego Postgresa —
   trzeba zmienić je w samej bazie (`ALTER USER`) albo zresetować wolumen (`down -v`, kasuje dane).
+- **`ARCHIVE_HOST_DIR` vs `ARCHIVE_DIR` to dwa końce jednego bind mountu** (`${ARCHIVE_HOST_DIR}:/archive`),
+  NIE sekrety. `ARCHIVE_HOST_DIR` (warstwa Compose, root `/.env`; dev default `../imap-archive` inline
+  w `compose.yaml`) = katalog na **hoście**, gdzie fizycznie leżą `.eml` — to backupujesz, trzymaj
+  POZA repo. `ARCHIVE_DIR` (warstwa Symfony; real env var z `compose.yaml` = `/archive` nadpisuje atrapę
+  w `app/.env`) = katalog **w kontenerze**, który widzi `ArchiveStorage` (`%env(ARCHIVE_DIR)%`).
+  Aplikacja nie zna ścieżki hosta — pisze do `/archive`; prod zmienia tylko `ARCHIVE_HOST_DIR`.
+  Pliki w archiwum są **root-owe** (kontener działa jako root) — w dev OK, na prod uwzględnić przy
+  backupie/UID.
 
 ## Gotchas — łatwo o tym zapomnieć
 
