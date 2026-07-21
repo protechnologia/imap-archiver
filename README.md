@@ -204,3 +204,58 @@ na coś innego. Uszkodzone źródło prawdy dokładnie tam, gdzie ma leżeć pra
 crash zostawia co najwyżej osierocony `*.tmp` (nieszkodliwy), a kanoniczny plik pojawia się dopiero
 kompletny. Warunek: temp musi być na tym samym FS co cel (stąd „w tym samym katalogu") — inaczej
 `rename` degeneruje się do nieatomowego kopiowania.
+
+### „Rok" wiadomości: INTERNALDATE vs nagłówek `Date`
+
+Import „maili z roku" wygląda na oczywisty — aż zauważysz, że mail ma **dwie różne daty**:
+
+- **INTERNALDATE** — kiedy serwer przyjął wiadomość. Po niej filtruje `SEARCH SINCE/BEFORE`. Każdy
+  mail ją ma (serwer nadaje przy dostarczeniu), nigdy nie jest pusta.
+- **nagłówek `Date`** — którą wpisał program nadawcy. To ją widać w kliencie jako „datę maila".
+  Bywa pusta, zepsuta albo fałszywa (szkice, spam, zły zegar, mail wgrany przez `APPEND`).
+
+Kuszące jest połączyć jedno z drugim: zawęzić `SEARCH` do roku (INTERNALDATE) i **odrzucić** po
+fetchu to, czego `Date` wypada poza rokiem. To **gubi maile na granicy roku**. Mail przyjęty
+2 stycznia 2025, ale z `Date: 31 grudnia 2024`, wypadnie z **obu** importów: rocznik 2024 go nie
+zobaczy (INTERNALDATE jest w 2025), a rocznik 2025 odrzuci po `Date`. Nie trafi nigdzie — a to
+archiwizator, który ma niczego nie zgubić.
+
+Dlatego selekcję opieramy o **INTERNALDATE (`SEARCH SINCE/BEFORE`), bez odrzucania czegokolwiek po
+fetchu**. Skoro każdy mail ma INTERNALDATE, kolejne rocz­niki kafelkują skrzynkę dokładnie raz —
+zero dziur, zero nakładek. Nagłówek `Date` i tak zapisujemy (`Message.sent_at`, do podglądu
+i sortowania), a rozjazd między jedną a drugą datą **raportujemy** w podsumowaniu importu — ale
+nigdy na jego podstawie nie pomijamy maila. Gdyby kiedyś ktoś chciał semantyki „rok = data z maila",
+służy do tego server-side `SENTSINCE/SENTBEFORE` (po `Date`) — ale wtedy maile bez poprawnego `Date`
+trzeba łapać osobnym przebiegiem.
+
+### Read-only naprawdę read-only: cztery warstwy, żeby nie ustawić `\Seen`
+
+Archiwizator **czyta** cudzą skrzynkę — i nie wolno mu jej zmienić. Najłatwiej złamać tę zasadę
+o flagę `\Seen`: w IMAP samo *pobranie* treści potrafi oznaczyć maila jako przeczytany. Wystarczy
+raz zaciągnąć `BODY[...]` (bez `PEEK`) i cudza „nieprzeczytana" poczta robi się „przeczytana" —
+cicha, nieodwracalna zmiana stanu skrzynki. Dlatego bronimy się warstwowo, a nie jednym trikiem:
+
+- **Nie pobieramy treści, gdy jej nie potrzebujemy** (`setFetchBody(false)`). Przy samej selekcji
+  (SEARCH po roku) webklex nie woła w ogóle pobrania body → nie ma czego oznaczyć. Nagłówki lecą
+  przez `RFC822.HEADER`, które jest odpowiednikiem `BODY.PEEK[HEADER]` — też nie rusza `\Seen`.
+- **Gdy JUŻ pobieramy treść — przez `BODY.PEEK[]`.** Wariant `PEEK` z definicji RFC 3501 **nie**
+  ustawia `\Seen`, w odróżnieniu od `BODY[]` bez `PEEK`. To jedyny atomowo read-only sposób na
+  surowe źródło maila i dlatego import ciągnie `.eml` własnym `UID FETCH <uid> BODY.PEEK[]`.
+- **Cały folder otwieramy przez `EXAMINE`, nie `SELECT`.** `EXAMINE` to „`SELECT` bez prawa
+  zapisu" — serwer w tym trybie **odrzuca każdy `STORE`** (a to `STORE` zmienia flagi). Drugi
+  zamek: nawet gdyby coś próbowało tknąć flagę, serwer nie pozwoli.
+- **Czego świadomie NIE traktujemy jako gwarancji: `leaveUnread()`.** Wygląda jak „czytaj bez
+  oznaczania", ale w webklex to **`set-then-unset`** — pobiera `BODY[TEXT]` (serwer *ustawia*
+  `\Seen`), a flagę zdejmuje dopiero po fakcie osobnym `STORE`. Netto nieprzeczytany zostaje
+  nieprzeczytany, ale przez moment flaga jest ustawiona i lecą dwa dodatkowe polecenia — to nie
+  jest prawdziwy PEEK. Zostawiamy je najwyżej jako deklarację intencji, nie jako fundament.
+
+Hierarchia zaufania jest więc odwrotna do intuicji: fundamentem jest **nie pobierać** (albo pobierać
+`PEEK`-iem) plus zamek `EXAMINE` — a nie kuszące „poczytaj i cofnij flagę".
+
+| Sposób | Gwarancja | Rola |
+|---|---|---|
+| `setFetchBody(false)` | mocna — body nie jest pobierane wcale | selekcja (SEARCH po roku) |
+| `BODY.PEEK[]` | mocna — `PEEK` z definicji nie tyka `\Seen` | pobranie surowego `.eml` |
+| `EXAMINE` | mocna — serwer blokuje każdy `STORE` | zamek na całą sesję (belt-and-suspenders) |
+| `leaveUnread()` | **słaba** — `set-then-unset`, nie prawdziwy PEEK | tylko intencja, nie fundament |

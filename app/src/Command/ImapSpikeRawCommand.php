@@ -42,15 +42,13 @@ class ImapSpikeRawCommand extends Command
         parent::__construct();
     }
 
-    protected function configure(): void
-    {
+    protected function configure(): void {
         $this
             ->addOption('account', null, InputOption::VALUE_REQUIRED, 'ID konta MailAccount')
             ->addOption('limit', null, InputOption::VALUE_REQUIRED, 'Ile najnowszych wiadomości porównać', '2');
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output): int
-    {
+    protected function execute(InputInterface $input, OutputInterface $output): int {
         $io = new SymfonyStyle($input, $output);
 
         $accountId = (string) $input->getOption('account');

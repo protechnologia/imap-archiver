@@ -264,6 +264,12 @@ Eksploratora Windows pod `\\wsl.localhost\dev-edor-gw\root\projects\imap-archive
   search parameters`** (potwierdzone na nazwa.pl). webklex NIE dokleja domyślnego `ALL`. Zawsze podać
   kryterium: `->whereAll()` (jak w `app:imap:ping`) albo konkretne `->whereSince()/->whereOn()` po
   dacie. Dotyczy też SEARCH po dacie w imporcie (etap 3).
+- **`SINCE/BEFORE` filtrują po INTERNALDATE (data przyjęcia przez serwer), NIE po nagłówku `Date`;
+  po `Date` filtruje `SENTSINCE/SENTBEFORE`** (RFC 3501). Import roku (etap 3.3) selekcjonuje po
+  **INTERNALDATE** (`->whereSince()/->whereBefore()`) i **nie odrzuca nic po fetchu** — zawężenie
+  `SEARCH` do roku + drop po `Date` GUBI maile na granicy roku (INTERNALDATE i `Date` w różnych
+  latach → mail wypada z obu roczników). Nagłówek `Date` ląduje w `Message.sent_at`; rozjazd tylko
+  raportujemy. Pełne „dlaczego" w README → „Ciekawostki techniczne".
 - **Szyfrowanie IMAP wnioskujemy z portu** w `ImapConnectionFactory`: 143→`tls` (STARTTLS), wszystko
   inne (w tym 993)→`ssl`. Gdyby pojawił się serwer wymagający innej kombinacji — dołożyć jawne pole,
   nie kombinować z portem. (Walidacja cert: flaga `IMAP_VALIDATE_CERT`, opisana w „Konfiguracja i sekrety".)
