@@ -105,10 +105,11 @@ dopiero, gdy import, archiwum i weryfikacja są pewne.
       bez fetch body, bez zmiany flag, nic nie kasuje). ➜ działa: ścieżki błędów (brak/zły `--account`,
       nieistniejące ID, nieudane połączenie) raportowane czytelnie; `lint:container` czysty. Happy-path
       do potwierdzenia na realnym serwerze IMAP. Żadnego zapisu `.eml`/`Message` — to Etap 3.
-- [ ] Etap 3 — import synchroniczny, mały zakres (`.eml` + DB, idempotentnie).
+- [x] Etap 3 — import synchroniczny, mały zakres (`.eml` + DB, idempotentnie).
       Komenda `app:archive:import --account=<id> --year=<rok>`: pobiera maile z roku, zapisuje
       surowy `.eml` (źródło prawdy) + `sha256`, indeksuje `Message` w DB, oznacza `verified`.
-      Synchronicznie (Messenger dopiero etap 4), read-only wobec skrzynki.
+      Synchronicznie (Messenger dopiero etap 4), read-only wobec skrzynki. ➜ komplet 3.0–3.4;
+      podgląd admina (3.4) domyka etap. Async/skala/progress = etap 4.
   - [x] Etap 3.0 — spike pobrania bajtowo-wiernego `.eml` (komenda `app:imap:spike-raw`). webklex
         `getRawBody()` zwraca tylko *body* (`structure->raw`), nie pełny RFC822. Porównano (A)
         `header->raw . "\r\n\r\n" . getRawBody()` vs (B) surowy `UID FETCH <uid> BODY.PEEK[]`.
@@ -165,14 +166,20 @@ dopiero, gdy import, archiwum i weryfikacja są pewne.
         `sha256sum` plików = nazwa, `lint:container`/`schema:validate` czyste. Poza zakresem etapu 3:
         async/progress (etap 4), podgląd DLA UŻYTKOWNIKÓW (5), JAKIEKOLWIEK kasowanie z serwera (6) —
         tu tylko `verified`, zero `\Deleted`.
-  - [ ] Etap 3.4 — diagnostyczny podgląd `Message` w EasyAdmin (`MessageCrudController`),
+  - [x] Etap 3.4 — diagnostyczny podgląd `Message` w EasyAdmin (`MessageCrudController`),
         **read-only**. Po imporcie (3.3) admin ogląda zaimportowane wiadomości: temat, nadawca
-        (`fromName`/`fromEmail`), data, rozmiar, `sha256`, `verified`, `hasAttachments`, folder,
-        konto; w detalu lista `Attachment` (metadane: nazwa, MIME, rozmiar). Tylko `index` + `detail`,
-        BEZ `new/edit/delete` (`Message` to indeks — edycja bez sensu; kasowanie zarchiwizowanej
-        poczty to etap 6 z audytem). To NIE jest podgląd dla użytkowników (trójpanelowy Twig/UX +
-        Voter + sandbox iframe) — ten zostaje Etapem 5; 3.4 to tani „wgląd admina" w efekt importu,
-        zanim powstanie pełny front. Treść maila renderujemy dopiero w etapie 5 (tu bez body/iframe).
+        (`fromName`/`fromEmail`), data, rozmiar (human-readable), `verified`, `hasAttachments` (na liście),
+        konto; w detalu dodatkowo `messageId`/`sha256`/`imapUid`/`archivePath`/folder + lista `Attachment`
+        (metadane: nazwa, MIME, rozmiar) renderowana WŁASNYM szablonem `admin/message_attachments.html.twig`
+        (bez osobnego CRUD-a — Attachment to czyste metadane, nie ma po co linkować). Tylko `index` +
+        `detail`: `configureActions()` wyłącza `NEW/EDIT/DELETE/BATCH_DELETE` (`Message` to indeks — edycja
+        bez sensu; kasowanie zarchiwizowanej poczty to etap 6 z audytem), wejście na te trasy → 403. Menu:
+        sekcja „Archiwum" → „Wiadomości". `size` renderowane generycznym `Field` (NIE `TextField` — ten
+        wymusza string i rzuca na wartości `int`) + `formatValue`. To NIE jest podgląd dla użytkowników
+        (trójpanelowy Twig/UX + Voter + sandbox iframe) — ten zostaje Etapem 5; 3.4 to tani „wgląd admina"
+        w efekt importu. Treść maila (`body`) renderujemy dopiero w etapie 5 (tu bez body/iframe). ➜ działa:
+        login dev-admina, lista 3 maili z konta #67 (tematy/nazwy zdekodowane), detal #3 z tabelką 2
+        załączników, #2 „Brak załączników", `new`/`edit` → 403, `lint:container`/`lint:twig` czyste.
 - [ ] Etap 4 — async (Messenger) + skala + progress.
 - [ ] Etap 5 — podgląd dla użytkowników (Twig/UX trójpanelowy, Voter, sandbox iframe).
 - [ ] Etap 6 — bezpieczne usuwanie (weryfikacja + potwierdzenie + EXPUNGE + audyt).

@@ -1,0 +1,36 @@
+{#
+  Lista załączników wiadomości na detalu EasyAdmin (etap 3.4), READ-ONLY.
+  Tylko METADANE (nazwa, MIME, rozmiar) — bajty zostają w `.eml`, pobranie/render dopiero w etapie 5.
+  Iterujemy po encji (`entity.instance`), nie po `field.value`, żeby mieć pewny dostęp do kolekcji.
+#}
+{% set attachments = entity.instance.attachments %}
+{% if attachments is empty %}
+    <span class="text-muted">Brak załączników</span>
+{% else %}
+    <table class="table table-sm datagrid" style="margin-bottom:0">
+        <thead>
+            <tr>
+                <th>Nazwa</th>
+                <th>Typ MIME</th>
+                <th class="text-right">Rozmiar</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for attachment in attachments %}
+                <tr>
+                    <td>{{ attachment.filename ?? '(bez nazwy)' }}</td>
+                    <td>{{ attachment.mimeType ?? '—' }}</td>
+                    <td class="text-right">
+                        {%- if attachment.size is null -%}
+                            —
+                        {%- elseif attachment.size < 1024 -%}
+                            {{ attachment.size }} B
+                        {%- else -%}
+                            {{ (attachment.size / 1024)|number_format(1, ',', ' ') }} KB
+                        {%- endif -%}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endif %}

@@ -41,5 +41,7 @@ class DashboardController extends AbstractDashboardController
         yield MenuItem::section('Zarządzanie');
         yield MenuItem::linkTo(UserCrudController::class, 'Użytkownicy', 'fa fa-users');
         yield MenuItem::linkTo(MailAccountCrudController::class, 'Konta IMAP', 'fa fa-envelope');
+        yield MenuItem::section('Archiwum');
+        yield MenuItem::linkTo(MessageCrudController::class, 'Wiadomości', 'fa fa-inbox');
     }
 }
