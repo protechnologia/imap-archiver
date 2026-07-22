@@ -339,17 +339,21 @@ Eksploratora Windows pod `\\wsl.localhost\dev-edor-gw\root\projects\imap-archive
   `setTemplatePath()` i formatowanie z `field.value` w Twigu (makro `admin/_bytes.html.twig`). Tak robi
   `MessageCrudController` dla rozmiaru (etap 3.4). Dla `TextField` osobny haczyk: jego konfigurator
   RZUCA na wartości nie-`string` (np. `int`) — patrz sam błąd „can't be converted into a string".
-- **EA odwraca układ pól boolean NA DETALU (`flex-direction: row-reverse`) — a wstrzyknięty override
-  `<head>` NIE działa przez Turbo.** Reguła `.ea-detail .field-group.field-boolean{flex-direction:
+- **EA odwraca układ pól boolean NA DETALU (`flex-direction: row-reverse`) — rób to własnym szablonem
+  w `<body>`, nie CSS-em w `<head>`.** Reguła `.ea-detail .field-group.field-boolean{flex-direction:
   row-reverse}` celowo daje układ „wartość z lewej, etykieta z prawej" (jak checkbox), łamiąc spójność
   z resztą pól read-only detalu. Override CSS przez `Dashboard::configureAssets()->addHtmlContentToHead
-  ('<style>…</style>')` JEST w serwowanym HTML (potwierdzone curlem), ale **Turbo Drive gubi inline
-  `<style>` z `<head>`** — podmienia `<body>`, a `<head>` merge'uje po swojemu → w przeglądarce (nawet
-  incognito) reguła nie wchodzi. **Naprawa, która działa: renderować boolean na detalu jako `TextField`
-  wirtualny z własnym szablonem-badge** (`admin/message_verified.html.twig`) — to treść `<body>`, którą
-  Turbo ZAWSZE podmienia, a wiersz dostaje klasę `.field-text` (nie `.field-boolean`), więc nie ma czego
-  odwracać. Na LIŚCIE `BooleanField` zostaje (tabela renderuje boolean bez odwracania). Tak robi
-  `MessageCrudController` (etap 3.4). Ogólniej: przy EA + Turbo nie licz na wstrzykiwanie stylu w `<head>`.
+  ('<style>…</style>')` BYŁ w serwowanym HTML (potwierdzone curlem), ale w przeglądarce (też incognito)
+  reguła nie wchodziła — CSSOM jej nie miał. **Przyczyny NIE ustaliliśmy** (CSP brak; Turbo Drive na EA
+  jest WYŁĄCZONY — `<html data-turbo="false">`, więc „Turbo gubi styl" to ślepy trop). Nie drążyliśmy
+  dalej, bo poprawka i tak siedzi w `<body>`. **Rozwiązanie, które działa: renderować boolean na detalu
+  jako `TextField` wirtualny z własnym szablonem-badge** (`admin/message_verified.html.twig`, czyta
+  `entity.instance.verified`) — wiersz dostaje `.field-text` (nie `.field-boolean`), więc nie ma czego
+  odwracać. Badge owinięty w `<span class="field-boolean">`, by trafić w firmowe style EA
+  (`.field-boolean .badge-boolean-*` → kolor motywu + uppercase) i wyglądać jak na liście; wrapper to
+  span, więc `.ea-detail .field-group.field-boolean` (wymaga `.field-group`) się nie odpala. Na LIŚCIE
+  `BooleanField` zostaje. Tak robi `MessageCrudController` (etap 3.4). Ogólna nauka: przy EA styling rób
+  szablonem/tracked-assetem, nie doraźnym `addHtmlContentToHead` — to okazało się zawodne z nieznanego powodu.
 - Stateless CSRF (config/packages/csrf.yaml): formularze renderują token jako literał
   `csrf-token` (JS go podmienia w przeglądarce). Walidacja przechodzi, gdy żądanie jest
   same-origin (nagłówek `Origin`/`Referer` zgodny z hostem) **i** w POST jest pole tokenu
