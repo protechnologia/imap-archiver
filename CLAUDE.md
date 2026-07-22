@@ -339,6 +339,17 @@ Eksploratora Windows pod `\\wsl.localhost\dev-edor-gw\root\projects\imap-archive
   `setTemplatePath()` i formatowanie z `field.value` w Twigu (makro `admin/_bytes.html.twig`). Tak robi
   `MessageCrudController` dla rozmiaru (etap 3.4). Dla `TextField` osobny haczyk: jego konfigurator
   RZUCA na wartości nie-`string` (np. `int`) — patrz sam błąd „can't be converted into a string".
+- **EA odwraca układ pól boolean NA DETALU (`flex-direction: row-reverse`) — a wstrzyknięty override
+  `<head>` NIE działa przez Turbo.** Reguła `.ea-detail .field-group.field-boolean{flex-direction:
+  row-reverse}` celowo daje układ „wartość z lewej, etykieta z prawej" (jak checkbox), łamiąc spójność
+  z resztą pól read-only detalu. Override CSS przez `Dashboard::configureAssets()->addHtmlContentToHead
+  ('<style>…</style>')` JEST w serwowanym HTML (potwierdzone curlem), ale **Turbo Drive gubi inline
+  `<style>` z `<head>`** — podmienia `<body>`, a `<head>` merge'uje po swojemu → w przeglądarce (nawet
+  incognito) reguła nie wchodzi. **Naprawa, która działa: renderować boolean na detalu jako `TextField`
+  wirtualny z własnym szablonem-badge** (`admin/message_verified.html.twig`) — to treść `<body>`, którą
+  Turbo ZAWSZE podmienia, a wiersz dostaje klasę `.field-text` (nie `.field-boolean`), więc nie ma czego
+  odwracać. Na LIŚCIE `BooleanField` zostaje (tabela renderuje boolean bez odwracania). Tak robi
+  `MessageCrudController` (etap 3.4). Ogólniej: przy EA + Turbo nie licz na wstrzykiwanie stylu w `<head>`.
 - Stateless CSRF (config/packages/csrf.yaml): formularze renderują token jako literał
   `csrf-token` (JS go podmienia w przeglądarce). Walidacja przechodzi, gdy żądanie jest
   same-origin (nagłówek `Origin`/`Referer` zgodny z hostem) **i** w POST jest pole tokenu

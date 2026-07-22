@@ -1,0 +1,16 @@
+{#
+  Status weryfikacji wiadomości na detalu EasyAdmin (etap 3.4).
+  Renderowany jako pole TEKSTOWE (nie BooleanField), żeby wiersz nie dostał klasy `.field-boolean`
+  na `.field-group`, którą EA na detalu odwraca (flex-direction: row-reverse). Dzięki temu układ jest
+  spójny z resztą pól (etykieta z lewej, wartość z prawej), niezależnie od CSS EA i Turbo.
+
+  Sam badge owijamy w `<span class="field-boolean">`, by TRAFIĆ w firmowe style EA
+  (`.field-boolean .badge-boolean-*` → kolor motywu, uppercase) i mieć IDENTYCZNY wygląd co na liście.
+  Ten wrapper to zwykły span, więc reguła odwracająca `.ea-detail .field-group.field-boolean` (wymaga
+  `.field-group`) NIE zadziała, a datagridowe `.datagrid .field-boolean` też nie (brak `.datagrid`).
+#}
+{% if entity.instance.verified %}
+    <span class="field-boolean"><span class="badge badge-boolean-true">Tak</span></span>
+{% else %}
+    <span class="field-boolean"><span class="badge badge-boolean-false">Nie</span></span>
+{% endif %}

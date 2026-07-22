@@ -68,8 +68,18 @@ class MessageCrudController extends AbstractCrudController
         yield IntegerField::new('size', 'Rozmiar')
             ->setTextAlign('right')
             ->setTemplatePath('admin/message_size.html.twig');
-        yield BooleanField::new('verified', 'Zweryfikowana')->renderAsSwitch(false);
+        // Na LIŚCIE (tabela) boolean renderuje się bez problemu — zwykły wyśrodkowany badge.
+        yield BooleanField::new('verified', 'Zweryfikowana')->renderAsSwitch(false)->onlyOnIndex();
         yield BooleanField::new('hasAttachments', 'Załączniki')->renderAsSwitch(false)->onlyOnIndex();
+
+        // Na DETALU renderujemy `verified` jako pole tekstowe z własnym szablonem-badge (nie BooleanField),
+        // bo EA odwraca układ pól `.field-boolean` na detalu (flex-direction: row-reverse — wartość z lewej,
+        // etykieta z prawej), łamiąc spójność z resztą pól. `verifiedBadge` jest wirtualne (nie ma takiej
+        // właściwości) — szablon czyta status z encji; TextField na null-value nie rzuca (early return).
+        yield TextField::new('verifiedBadge', 'Zweryfikowana')
+            ->onlyOnDetail()
+            ->setSortable(false)
+            ->setTemplatePath('admin/message_verified.html.twig');
         yield TextField::new('folder', 'Folder')->onlyOnDetail();
         yield AssociationField::new('account', 'Konto');
 
