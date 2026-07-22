@@ -1,5 +1,8 @@
 framework:
-    default_locale: en
+    # UI po polsku (konwencja projektu) — Symfony i EasyAdmin dobierają wtedy polskie
+    # tłumaczenia (EA ma EasyAdminBundle.pl): „Back to listing" → „Powrót do listy",
+    # badge Yes/No → Tak/Nie itd. Bez tego panel leci po angielsku mimo polskich etykiet.
+    default_locale: pl
     translator:
         default_path: '%kernel.project_dir%/translations'
         providers:

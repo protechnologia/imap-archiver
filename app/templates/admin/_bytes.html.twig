@@ -1,0 +1,15 @@
+{#
+  Makro formatujące rozmiar w bajtach na czytelną jednostkę (B/KB/MB).
+  Współdzielone przez podgląd wiadomości: rozmiar maila i rozmiary załączników (etap 3.4).
+#}
+{% macro human(bytes) -%}
+    {%- if bytes is null -%}
+        —
+    {%- elseif bytes < 1024 -%}
+        {{ bytes }} B
+    {%- elseif bytes < 1048576 -%}
+        {{ (bytes / 1024)|number_format(1, ',', ' ') }} KB
+    {%- else -%}
+        {{ (bytes / 1048576)|number_format(1, ',', ' ') }} MB
+    {%- endif -%}
+{%- endmacro %}

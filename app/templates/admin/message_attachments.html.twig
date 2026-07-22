@@ -3,6 +3,7 @@
   Tylko METADANE (nazwa, MIME, rozmiar) — bajty zostają w `.eml`, pobranie/render dopiero w etapie 5.
   Iterujemy po encji (`entity.instance`), nie po `field.value`, żeby mieć pewny dostęp do kolekcji.
 #}
+{% import 'admin/_bytes.html.twig' as bytes %}
 {% set attachments = entity.instance.attachments %}
 {% if attachments is empty %}
     <span class="text-muted">Brak załączników</span>
@@ -20,15 +21,7 @@
                 <tr>
                     <td>{{ attachment.filename ?? '(bez nazwy)' }}</td>
                     <td>{{ attachment.mimeType ?? '—' }}</td>
-                    <td class="text-right">
-                        {%- if attachment.size is null -%}
-                            —
-                        {%- elseif attachment.size < 1024 -%}
-                            {{ attachment.size }} B
-                        {%- else -%}
-                            {{ (attachment.size / 1024)|number_format(1, ',', ' ') }} KB
-                        {%- endif -%}
-                    </td>
+                    <td class="text-right">{{ bytes.human(attachment.size) }}</td>
                 </tr>
             {% endfor %}
         </tbody>

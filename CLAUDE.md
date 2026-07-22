@@ -326,6 +326,19 @@ Eksploratora Windows pod `\\wsl.localhost\dev-edor-gw\root\projects\imap-archive
   `git push`/`fetch` robimy już z WSL, nie trzeba przełączać się na PowerShell.
 - EasyAdmin 5.x: w menu **nie ma `MenuItem::linkToCrud()`** (było we wcześniejszych wersjach).
   Link do CRUD-a robimy przez `MenuItem::linkTo(FooCrudController::class, 'Etykieta', 'fa fa-...')`.
+- **EasyAdmin po polsku = `framework.default_locale: pl`** (NIE tłumaczenie ręczne). EA ma własne
+  `EasyAdminBundle.pl` — przy locale `pl` „Back to listing", badge Yes/No itd. lecą po polsku same.
+  Z `en` panel jest angielski MIMO polskich etykiet pól (etykiety to nasze stringi, a chrome EA to
+  jego domena tłumaczeń).
+- **EA: `formatValue()` na polu numerycznym jest ZJADANY przez `IntegerConfigurator`.** Kolejność
+  konfiguratorów: `CommonPostConfigurator` (stosuje `formatValue`, priorytet −9999) biegnie, ale pole
+  z kolumny `int` EA zgaduje jako `IntegerField`, którego konfigurator BEZWARUNKOWO nadpisuje
+  `formattedValue` surową liczbą. Skutek: `Field/IntegerField::new('size')->formatValue(fn…KB)` i tak
+  pokazuje `49189`. Pole WIRTUALNE (`TextField::new('sizeHuman')`) też nie ratuje — EA traktuje
+  nie-czytelną właściwość jako null → „Niedostępny". **Naprawa: własny szablon** przez
+  `setTemplatePath()` i formatowanie z `field.value` w Twigu (makro `admin/_bytes.html.twig`). Tak robi
+  `MessageCrudController` dla rozmiaru (etap 3.4). Dla `TextField` osobny haczyk: jego konfigurator
+  RZUCA na wartości nie-`string` (np. `int`) — patrz sam błąd „can't be converted into a string".
 - Stateless CSRF (config/packages/csrf.yaml): formularze renderują token jako literał
   `csrf-token` (JS go podmienia w przeglądarce). Walidacja przechodzi, gdy żądanie jest
   same-origin (nagłówek `Origin`/`Referer` zgodny z hostem) **i** w POST jest pole tokenu

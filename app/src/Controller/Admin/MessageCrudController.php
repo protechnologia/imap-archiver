@@ -58,10 +58,16 @@ class MessageCrudController extends AbstractCrudController
         yield TextField::new('subject', 'Temat');
         yield TextField::new('fromName', 'Nadawca');
         yield TextField::new('fromEmail', 'E-mail nadawcy');
-        yield DateTimeField::new('date', 'Data')->setFormat('yyyy-MM-dd HH:mm');
-        yield Field::new('size', 'Rozmiar')
-            ->formatValue(fn (?int $bytes): string => $this->formatBytes((int) $bytes))
-            ->setTextAlign('right');
+        yield DateTimeField::new('date', 'Data wysłania')
+            ->setFormat('yyyy-MM-dd HH:mm')
+            ->setHelp('Z nagłówka <code>Date</code> wiadomości (deklarowana data wysłania), nie data przyjęcia przez serwer.');
+
+        // Rozmiar: mapowany `size` (int) → EA zgaduje IntegerField, a jego konfigurator nadpisuje
+        // `formatValue` surową liczbą (kolejność: formatValue → IntegerConfigurator zjada). Dlatego
+        // formatujemy własnym szablonem — pewnie i sortowalnie po prawdziwej kolumnie `size`.
+        yield IntegerField::new('size', 'Rozmiar')
+            ->setTextAlign('right')
+            ->setTemplatePath('admin/message_size.html.twig');
         yield BooleanField::new('verified', 'Zweryfikowana')->renderAsSwitch(false);
         yield BooleanField::new('hasAttachments', 'Załączniki')->renderAsSwitch(false)->onlyOnIndex();
         yield TextField::new('folder', 'Folder')->onlyOnDetail();
@@ -77,29 +83,5 @@ class MessageCrudController extends AbstractCrudController
         yield Field::new('attachments', 'Załączniki')
             ->onlyOnDetail()
             ->setTemplatePath('admin/message_attachments.html.twig');
-    }
-
-    /**
-     * Formatuje rozmiar w bajtach na czytelną jednostkę (B/KB/MB) do wyświetlenia.
-     *
-     * @param int $bytes Rozmiar w bajtach, np. 49189
-     *
-     * @return string Sformatowany rozmiar, np. "48,0 KB"
-     */
-    private function formatBytes(int $bytes): string
-    {
-        if ($bytes < 1024) {
-            return sprintf('%d B', $bytes);
-        }
-
-        $units = ['KB', 'MB', 'GB'];
-        $value = $bytes / 1024;
-        $unit = 0;
-        while ($value >= 1024 && $unit < count($units) - 1) {
-            $value /= 1024;
-            ++$unit;
-        }
-
-        return sprintf('%.1f %s', $value, $units[$unit]);
     }
 }
