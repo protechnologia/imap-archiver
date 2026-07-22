@@ -18,9 +18,9 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 /**
  * Etap 3.3: import wiadomości z konkretnego roku do archiwum (`.eml` + indeks `Message`).
  *
- * PODETAP 3.3b: komenda waliduje opcje, pobiera `.eml` z danego roku i zapisuje do archiwum
- * (przez `ImportManager`), po czym pokazuje podsumowanie (znalezione / pobrane / błędy).
- * Read-only wobec skrzynki. Indeks `Message`/`Attachment` i weryfikacja (`verified`) — 3.3c.
+ * Waliduje opcje, po czym przez `ImportManager` pobiera `.eml` z danego roku, zapisuje do archiwum,
+ * indeksuje `Message`/`Attachment` i weryfikuje checksum, a na końcu pokazuje podsumowanie
+ * (znalezione / nowe / duplikaty / zweryfikowane / błędy). Read-only wobec skrzynki, idempotentnie.
  *
  * Przykładowy przebieg (`app:archive:import --account=12 --year=2026`):
  *
@@ -37,17 +37,17 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  *     Metryka                                              Liczba
  *    ---------------------------------------------------- --------
  *     Znalezione w roku (wg daty przyjęcia przez serwer)   3
- *     Pobrane i zapisane                                   3
+ *     Nowe (zapisane + zaindeksowane)                      3
+ *     Pominięte duplikaty (już w DB)                       0
+ *     Zweryfikowane (plik + zgodny checksum)               3
  *     Błędy                                                0
  *    ---------------------------------------------------- --------
  *
  *    [OK] Konto "poczta@example.com", rok 2026 — import zakończony.
- *
- *    ! [NOTE] Indeks w bazie (Message/Attachment) i weryfikacja (verified) dochodzą w 3.3c.
  */
 #[AsCommand(
     name: 'app:archive:import',
-    description: 'Etap 3.3: import wiadomości z roku do archiwum (.eml + indeks). 3.3b: pobranie + zapis.',
+    description: 'Etap 3.3: import wiadomości z roku do archiwum (.eml + indeks Message + weryfikacja).',
 )]
 class ArchiveImportCommand extends Command {
 
@@ -176,12 +176,14 @@ class ArchiveImportCommand extends Command {
     }
 
     /**
-     * Wypisuje podsumowanie: tabela metryk, ewentualna lista błędów, status i notka o 3.3c.
+     * Wypisuje podsumowanie: tabela metryk, ewentualna lista błędów i status końcowy.
      */
     private function renderSummary(SymfonyStyle $io, MailAccount $account, ImportSummary $summary): void {
         $io->table(['Metryka', 'Liczba'], [
             ['Znalezione w roku (wg daty przyjęcia przez serwer)', $summary->candidates],
-            [$summary->dryRun ? 'Pobrane (dry-run, bez zapisu)' : 'Pobrane i zapisane', $summary->fetched],
+            [$summary->dryRun ? 'Nowe (dry-run, do zaimportowania)' : 'Nowe (zapisane + zaindeksowane)', $summary->imported],
+            ['Pominięte duplikaty (już w DB)', $summary->skipped],
+            [$summary->dryRun ? 'Zweryfikowane (n/d w dry-run)' : 'Zweryfikowane (plik + zgodny checksum)', $summary->verified],
             ['Błędy', count($summary->errors)],
         ]);
 
@@ -191,6 +193,5 @@ class ArchiveImportCommand extends Command {
         }
 
         $io->success(sprintf('Konto "%s", rok %d — import zakończony%s.', $account->getLabel(), $summary->year, $summary->dryRun ? ' (dry-run)' : ''));
-        $io->note('Indeks w bazie (Message/Attachment) i weryfikacja (verified) dochodzą w 3.3c.');
     }
 }

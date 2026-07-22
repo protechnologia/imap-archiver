@@ -148,17 +148,23 @@ dopiero, gdy import, archiwum i weryfikacja są pewne.
         root-owy), `lint:container` czysty, smoke (zapis→sha256→read round-trip→idempotencja)
         potwierdzony, plik fizycznie na hoście, host-owy `sha256sum` = nazwa pliku. Backup
         `ARCHIVE_HOST_DIR` = obowiązek operacyjny. Pliki root-owe (kontener=root) — na prod uwzględnić.
-  - [ ] Etap 3.3 — pipeline importu: serwis `ImapImporter` + komenda. SEARCH po zakresie roku
-        (`->whereSince()` + górna granica; NIE pusty query — patrz gotcha o pustym SEARCH; uwaga na
-        strefę czasową przy granicy roku), `leaveUnread()` + `BODY.PEEK[]` (read-only, bez `\Seen`).
-        Per mail: surowe źródło → `sha256` → idempotencja (jest `Message (account, messageId, sha256)`?
-        pomiń) → `ArchiveStorage::store()` → `Message`+`Attachment` z nagłówków → flush. Weryfikacja:
-        odczyt pliku z dysku, przelicz `sha256`, zgodne → `verified=true` (realizuje warunek
-        bezpiecznego kasowania z etapu 6: jest w DB + jest plik + checksum się zgadza). Komenda
-        `app:archive:import --account=<id> --year=<rok> [--dry-run]` z podsumowaniem (pobrane /
-        pominięte-duplikaty / błędy / zweryfikowane). Poza zakresem etapu 3: async/progress (etap 4),
-        podgląd DLA UŻYTKOWNIKÓW (5), JAKIEKOLWIEK kasowanie z serwera (6) — tu tylko `verified`,
-        zero `\Deleted`.
+  - [x] Etap 3.3 — pipeline importu: `ImapReader` (IMAP) + `ImportManager` (polityka) + komenda.
+        Rozbite na podetapy: 3.3a (komenda + SEARCH roku), 3.3b (pobranie `.eml` + zapis do archiwum),
+        3.3c (idempotencja po DB + indeks `Message`/`Attachment` + weryfikacja). SEARCH po INTERNALDATE
+        (`->whereSince()` + górna granica; NIE pusty query — gotcha o pustym SEARCH), treść przez
+        `BODY.PEEK[]` (read-only, bez `\Seen`). Per mail w `ImportManager`: surowe źródło → `sha256` →
+        idempotencja (`MessageRepository::existsForContent(accountId, sha256)` po `UNIQUE(account_id,
+        sha256)` — NIE po `messageId`, bywa NULL; jest → `skipped`) → `ArchiveStorage::store()` →
+        `MessageFactory::fromRaw()` wyprowadza `Message`+`Attachment` z TYCH SAMYCH bajtów przez
+        `Message::fromString()` → persist+flush. Weryfikacja: odczyt pliku z dysku, przelicz `sha256`,
+        zgodne → `verified=true` (realizuje warunek bezpiecznego kasowania z etapu 6: jest w DB + jest
+        plik + checksum się zgadza). Komenda `app:archive:import --account=<id> --year=<rok> [--dry-run]`
+        z podsumowaniem (kandydaci / nowe / duplikaty / zweryfikowane / błędy). ➜ **zweryfikowane na
+        koncie #67**: import 3/3/0 (nowe/zweryfikowane/błędy), idempotencja (ponowny przebieg 0/3
+        nowe/duplikaty), tematy i nazwy nadawcy zdekodowane (patrz gotcha o dekoderze webklex),
+        `sha256sum` plików = nazwa, `lint:container`/`schema:validate` czyste. Poza zakresem etapu 3:
+        async/progress (etap 4), podgląd DLA UŻYTKOWNIKÓW (5), JAKIEKOLWIEK kasowanie z serwera (6) —
+        tu tylko `verified`, zero `\Deleted`.
   - [ ] Etap 3.4 — diagnostyczny podgląd `Message` w EasyAdmin (`MessageCrudController`),
         **read-only**. Po imporcie (3.3) admin ogląda zaimportowane wiadomości: temat, nadawca
         (`fromName`/`fromEmail`), data, rozmiar, `sha256`, `verified`, `hasAttachments`, folder,
@@ -248,6 +254,16 @@ Eksploratora Windows pod `\\wsl.localhost\dev-edor-gw\root\projects\imap-archive
 
 - `ext-imap` wypada z core PHP → używamy `webklex/php-imap` (v6). Uwaga: ciągnie zależności
   `illuminate/*` (kawałki Laravela) + `nesbot/carbon` — to normalne, nie pomyłka.
+- **Webklex NIE dekoduje nagłówków MIME (encoded-words) bez `ext-imap` — trzeba dekoderowi kazać
+  `iconv`.** Domyślny dekoder nagłówków (`decoding.options.header = 'utf-8'`) woła `mimeHeaderDecode()`,
+  który BEZ `ext-imap` oddaje surowy tekst (nie ma `imap_mime_header_decode`); ta niepusta surówka
+  zwiera obwód, zanim kod dojdzie do fallbacku `iconv_mime_decode`. Skutek: temat/nazwa nadawcy z
+  polskimi znakami lądują jako `=?UTF-8?B?…?=`. Naprawa (świadomie BEZ wracania do `ext-imap`):
+  `Message::fromString($raw, Config::make(['decoding' => ['options' => ['header' => 'iconv']]]))` —
+  tryb `iconv` woła wprost `iconv_mime_decode()` (`ext-iconv` jest w buildzie) i dekoduje spójnie temat
+  oraz `personal` w adresach (dzielą tę ścieżkę). Robi to `MessageFactory` (import, etap 3.3c). Osobno:
+  webklex zostawia w `Address::$personal` zewnętrzne cudzysłowy quoted-string (`"Jan Kowalski"`) —
+  `MessageFactory::cleanPersonal()` zdejmuje jedną dopasowaną parę.
 - **IMAP read-only naprawdę read-only:** webklex domyślnie przy pobraniu wiadomości ustawia flagę
   `\Seen`. Żeby NIE mutować skrzynki (krytyczne dla archiwizatora), w query woła się `->leaveUnread()`
   (+ `->setFetchBody(false)` gdy potrzebne tylko nagłówki). `app:imap:ping` tak robi; pamiętać o tym
