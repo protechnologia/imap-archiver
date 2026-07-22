@@ -35,8 +35,7 @@ final class ImapConnectionFactory
      * @throws \InvalidArgumentException gdy konto nie używa uwierzytelniania hasłem
      * @throws \Webklex\PHPIMAP\Exceptions\ConnectionFailedException gdy nie uda się połączyć / zalogować
      */
-    public function connect(MailAccount $account): Client
-    {
+    public function connect(MailAccount $account): Client {
         if ($account->getAuthType() !== AuthType::Password) {
             throw new \InvalidArgumentException(sprintf(
                 'Konto "%s" używa uwierzytelniania "%s" — etap 2 obsługuje tylko hasło (XOAUTH2 będzie później).',
@@ -47,14 +46,13 @@ final class ImapConnectionFactory
 
         $clientManager = new ClientManager();
         $client = $clientManager->make([
-            'host' => $account->getHost(),
-            'port' => $account->getPort(),
-            'protocol' => 'imap',
-            // Port 143 = STARTTLS, w pozostałych przypadkach implicit SSL (993 i typowe).
-            'encryption' => $account->getPort() === 143 ? 'tls' : 'ssl',
-            'validate_cert' => $this->validateCert,
-            'username' => $account->getImapLogin(),
-            'password' => (string) $account->getSecret(),
+            'host'           => $account->getHost(),
+            'port'           => $account->getPort(),
+            'protocol'       => 'imap',
+            'encryption'     => $account->getPort() === 143 ? 'tls' : 'ssl', // Port 143 = STARTTLS, w pozostałych przypadkach implicit SSL (993 i typowe).
+            'validate_cert'  => $this->validateCert,
+            'username'       => $account->getImapLogin(),
+            'password'       => (string) $account->getSecret(),
             'authentication' => null,
         ]);
 

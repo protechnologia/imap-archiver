@@ -116,7 +116,7 @@ class Message
     /**
      * Zwraca konto, z którego pochodzi wiadomość.
      *
-     * @return MailAccount|null Konto, np. MailAccount #67 (test@egie.pl)
+     * @return MailAccount|null Konto, np. MailAccount #12 (poczta@example.com)
      */
     public function getAccount(): ?MailAccount
     {
@@ -126,7 +126,7 @@ class Message
     /**
      * Ustawia konto, z którego pochodzi wiadomość.
      *
-     * @param MailAccount|null $account Konto, np. MailAccount #67 (test@egie.pl)
+     * @param MailAccount|null $account Konto, np. MailAccount #12 (poczta@example.com)
      *
      * @return $this
      */
@@ -164,7 +164,7 @@ class Message
     /**
      * Zwraca nagłówek `Message-ID` (bez nawiasów) lub null.
      *
-     * @return string|null Message-ID, np. "84df8acb-6be1-41a6-8e11-a7151eb385fa@egie.pl"
+     * @return string|null Message-ID, np. "84df8acb-6be1-41a6-8e11-a7151eb385fa@example.com"
      */
     public function getMessageId(): ?string
     {
@@ -174,7 +174,7 @@ class Message
     /**
      * Ustawia nagłówek `Message-ID` (lub null, gdy mail go nie miał).
      *
-     * @param string|null $messageId Message-ID, np. "84df8acb-6be1-41a6-8e11-a7151eb385fa@egie.pl"
+     * @param string|null $messageId Message-ID, np. "84df8acb-6be1-41a6-8e11-a7151eb385fa@example.com"
      *
      * @return $this
      */
@@ -212,7 +212,7 @@ class Message
     /**
      * Zwraca nazwę nadawcy z nagłówka `From`.
      *
-     * @return string|null Nazwa, np. "Adam Kukla (eGIE)"
+     * @return string|null Nazwa, np. "Jan Kowalski"
      */
     public function getFromName(): ?string
     {
@@ -222,7 +222,7 @@ class Message
     /**
      * Ustawia nazwę nadawcy.
      *
-     * @param string|null $fromName Nazwa, np. "Adam Kukla (eGIE)"
+     * @param string|null $fromName Nazwa, np. "Jan Kowalski"
      *
      * @return $this
      */
@@ -236,7 +236,7 @@ class Message
     /**
      * Zwraca adres e-mail nadawcy z nagłówka `From`.
      *
-     * @return string|null Adres, np. "a.kukla@egie.pl"
+     * @return string|null Adres, np. "jan.kowalski@example.com"
      */
     public function getFromEmail(): ?string
     {
@@ -246,7 +246,7 @@ class Message
     /**
      * Ustawia adres e-mail nadawcy.
      *
-     * @param string|null $fromEmail Adres, np. "a.kukla@egie.pl"
+     * @param string|null $fromEmail Adres, np. "jan.kowalski@example.com"
      *
      * @return $this
      */

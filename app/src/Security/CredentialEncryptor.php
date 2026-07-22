@@ -28,8 +28,8 @@ final class CredentialEncryptor
         }
 
         $binary = @sodium_hex2bin($key);
-        if (\strlen($binary) !== SODIUM_CRYPTO_SECRETBOX_KEYBYTES) {
-            throw new \InvalidArgumentException(\sprintf(
+        if (strlen($binary) !== SODIUM_CRYPTO_SECRETBOX_KEYBYTES) {
+            throw new \InvalidArgumentException(sprintf(
                 'MAIL_CRYPTO_KEY musi być %d-bajtowym kluczem (64 znaki hex).',
                 SODIUM_CRYPTO_SECRETBOX_KEYBYTES
             ));
@@ -53,7 +53,7 @@ final class CredentialEncryptor
     {
         $decoded = base64_decode($stored, true);
         $minLength = SODIUM_CRYPTO_SECRETBOX_NONCEBYTES + SODIUM_CRYPTO_SECRETBOX_MACBYTES;
-        if ($decoded === false || \strlen($decoded) < $minLength) {
+        if ($decoded === false || strlen($decoded) < $minLength) {
             throw new \RuntimeException('Nieprawidłowy szyfrogram poświadczenia (zła długość lub base64).');
         }
 

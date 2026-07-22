@@ -161,7 +161,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     /**
      * Zwraca konta IMAP, do których użytkownik ma dostęp.
      *
-     * @return Collection<int, MailAccount> Kolekcja, np. [MailAccount("Poczta firmowa eGIE")]
+     * @return Collection<int, MailAccount> Kolekcja, np. [MailAccount("Poczta firmowa")]
      */
     public function getMailAccounts(): Collection
     {
@@ -171,7 +171,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     /**
      * Przyznaje użytkownikowi dostęp do konta (idempotentnie) i synchronizuje stronę właścicielską.
      *
-     * @param MailAccount $mailAccount Konto, np. MailAccount("Poczta firmowa eGIE")
+     * @param MailAccount $mailAccount Konto, np. MailAccount("Poczta firmowa")
      *
      * @return $this
      */
@@ -189,7 +189,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     /**
      * Odbiera użytkownikowi dostęp do konta i synchronizuje stronę właścicielską.
      *
-     * @param MailAccount $mailAccount Konto, np. MailAccount("Poczta firmowa eGIE")
+     * @param MailAccount $mailAccount Konto, np. MailAccount("Poczta firmowa")
      *
      * @return $this
      */

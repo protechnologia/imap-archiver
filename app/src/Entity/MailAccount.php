@@ -87,7 +87,7 @@ class MailAccount
     /**
      * Zwraca przyjazną nazwę konta wyświetlaną w panelu.
      *
-     * @return string Etykieta, np. "Poczta firmowa eGIE"
+     * @return string Etykieta, np. "Poczta firmowa"
      */
     public function getLabel(): string
     {
@@ -97,7 +97,7 @@ class MailAccount
     /**
      * Ustawia przyjazną nazwę konta.
      *
-     * @param string $label Etykieta, np. "Poczta firmowa eGIE"
+     * @param string $label Etykieta, np. "Poczta firmowa"
      *
      * @return $this
      */
@@ -111,7 +111,7 @@ class MailAccount
     /**
      * Zwraca host serwera IMAP.
      *
-     * @return string Adres serwera, np. "egie.nazwa.pl"
+     * @return string Adres serwera, np. "imap.example.com"
      */
     public function getHost(): string
     {
@@ -121,7 +121,7 @@ class MailAccount
     /**
      * Ustawia host serwera IMAP.
      *
-     * @param string $host Adres serwera, np. "egie.nazwa.pl"
+     * @param string $host Adres serwera, np. "imap.example.com"
      *
      * @return $this
      */
@@ -159,7 +159,7 @@ class MailAccount
     /**
      * Zwraca login do skrzynki (zwykle pełny adres e-mail).
      *
-     * @return string Login, np. "test@egie.pl"
+     * @return string Login, np. "poczta@example.com"
      */
     public function getImapLogin(): string
     {
@@ -169,7 +169,7 @@ class MailAccount
     /**
      * Ustawia login do skrzynki.
      *
-     * @param string $imapLogin Login, np. "test@egie.pl"
+     * @param string $imapLogin Login, np. "poczta@example.com"
      *
      * @return $this
      */
@@ -305,7 +305,7 @@ class MailAccount
     /**
      * Etykieta konta na listach w UI (EasyAdmin, listy wyboru relacji).
      *
-     * @return string Etykieta, np. "Poczta firmowa eGIE"
+     * @return string Etykieta, np. "Poczta firmowa"
      */
     public function __toString(): string
     {

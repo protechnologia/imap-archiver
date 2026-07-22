@@ -117,7 +117,7 @@ class ImapSpikeRawCommand extends Command
                 try {
                     $fetched = $connection->fetch(['UID', 'BODY.PEEK[]'], [$uid], null, IMAP::ST_UID)->validatedData();
                     $emlB = $fetched[$uid]['BODY[]'] ?? null;
-                    if ($emlB === null && isset($fetched[$uid]) && \is_array($fetched[$uid])) {
+                    if ($emlB === null && isset($fetched[$uid]) && is_array($fetched[$uid])) {
                         $io->comment('Diagnostyka B — klucze odpowiedzi: ' . implode(', ', array_keys($fetched[$uid])));
                     }
                 } catch (\Throwable $e) {

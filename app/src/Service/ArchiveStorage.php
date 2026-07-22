@@ -59,7 +59,7 @@ final class ArchiveStorage
             $this->filesystem->dumpFile($absolutePath, $rawEml);
         }
 
-        return new ArchivedFile($relativePath, $sha256, \strlen($rawEml));
+        return new ArchivedFile($relativePath, $sha256, strlen($rawEml));
     }
 
     /**
