@@ -16,6 +16,8 @@ Plan etapów, architektura i zasady projektu: zobacz [`CLAUDE.md`](./CLAUDE.md).
 - Symfony 7.4 (LTS)
 - FrankenPHP
 - PostgreSQL 16
+- IMAP: `webklex/php-imap` (NIE `ext-imap` — wypada z core PHP)
+- Symfony Messenger (import asynchroniczny)
 - Symfony UX (Turbo + Stimulus + Live Components)
 - Tailwind (AssetMapper, bez Node)
 - EasyAdmin
@@ -149,6 +151,29 @@ docker compose exec php composer <komenda>
 docker compose exec php php bin/console doctrine:migrations:migrate
 docker compose down       # zatrzymuje, wolumeny zostają
 docker compose down -v    # UWAGA: kasuje wolumeny, w tym bazę
+```
+
+### Komendy aplikacji
+
+```bash
+# użytkownicy
+docker compose exec php php bin/console app:user:create <email> [hasło] [--admin]
+
+# diagnostyka połączenia IMAP — read-only, listuje foldery i nagłówki najnowszych
+docker compose exec php php bin/console app:imap:ping --account=<id> [--limit=N]
+
+# import rocznika: pobiera .eml, zapisuje do archiwum, indeksuje i weryfikuje checksum.
+# Idempotentny (ponowny przebieg nie duplikuje) i read-only wobec skrzynki.
+# --dry-run pokazuje, co by zrobił, bez zapisu.
+docker compose exec php php bin/console app:archive:import --account=<id> --year=<rok> [--dry-run]
+```
+
+### Praca nad kodem
+
+```bash
+docker compose exec php composer cs        # sprawdza styl (php-cs-fixer, zakres src/)
+docker compose exec php composer cs:fix    # poprawia styl w miejscu
+docker compose exec php php bin/console tailwind:build [-m] [--watch]
 ```
 
 ## Ciekawostki techniczne
