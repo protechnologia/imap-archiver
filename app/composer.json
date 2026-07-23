@@ -65,7 +65,9 @@
         ],
         "post-update-cmd": [
             "@auto-scripts"
-        ]
+        ],
+        "cs": "php-cs-fixer fix --dry-run --diff",
+        "cs:fix": "php-cs-fixer fix"
     },
     "conflict": {
         "symfony/symfony": "*"
@@ -77,6 +79,7 @@
         }
     },
     "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.95",
         "symfony/debug-bundle": "7.4.*",
         "symfony/maker-bundle": "^1.67",
         "symfony/web-profiler-bundle": "7.4.*"

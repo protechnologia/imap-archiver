@@ -8,7 +8,16 @@ Wielu użytkowników z dostępem do podglądu; jeden admin robi import i zarząd
 ## Konwencje
 
 - Komunikacja, UI i treści po polsku; kod, identyfikatory i nazwy plików po angielsku.
-- `declare(strict_types=1)` w każdym pliku PHP. PSR-12.
+- `declare(strict_types=1)` w każdym pliku PHP.
+- **PSR-12 z jednym świadomym wyjątkiem: klamra otwierająca klasy i metody zostaje w TEJ SAMEJ
+  linii** co sygnatura (PSR-12 każe ją przenosić do nowej — u nas nie).
+- **Natywne funkcje bez wiodącego `\`** (`count()`, nie `\count()`); globalne KLASY zachowują `\`
+  (`\DateTimeImmutable`, `\RuntimeException`). Formatter IDE lubi doklejać backslashe — wyłączyć.
+- Docbloki po polsku: akapit „dlaczego" (decyzja/pułapka) + `@param`/`@return` z konkretnym
+  przykładem wartości („np. 49189").
+- **Styl egzekwuje php-cs-fixer** (`app/.php-cs-fixer.dist.php`, zakres `src/`): `composer cs`
+  sprawdza, `composer cs:fix` poprawia. Boilerplate Symfony (`config/`, `public/`, `bin/`) poza
+  zakresem — nie formatujemy cudzych plików startowych.
 - To jest IMAP, **nie SMTP** (SMTP służy tylko do wysyłki).
 
 ## Stack
@@ -202,6 +211,10 @@ docker compose exec php php bin/console app:user:create <email> [hasło] [--admi
 
 # front: build CSS Tailwind (od etapu 1; v4, bez Node)
 docker compose exec php php bin/console tailwind:build [-m] [--watch]
+
+# styl kodu (php-cs-fixer; zakres src/)
+docker compose exec php composer cs        # tylko pokazuje, co wymaga poprawy
+docker compose exec php composer cs:fix    # poprawia w miejscu
 
 # spike połączenia IMAP (od etapu 2) — read-only, listuje foldery + nagłówki najnowszych
 docker compose exec php php bin/console app:imap:ping --account=<id> [--limit=N]
