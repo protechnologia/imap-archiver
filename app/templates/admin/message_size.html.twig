@@ -1,7 +1,0 @@
-{#
-  Rozmiar wiadomości na liście i detalu EasyAdmin (etap 3.4).
-  Własny szablon, bo IntegerConfigurator EA nadpisuje `formatValue` surową liczbą — tu formatujemy
-  bezpośrednio z `field.value` (surowe bajty) przez współdzielone makro.
-#}
-{% import 'admin/_bytes.html.twig' as bytes %}
-{{ bytes.human(field.value) }}

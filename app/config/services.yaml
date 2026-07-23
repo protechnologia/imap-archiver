@@ -18,8 +18,8 @@ services:
     # this creates a service per class whose id is the fully-qualified class name
     App\:
         resource: '../src/'
-        # Typy nie-usługowe (czyste dane / mapowanie ORM) nie mają być definicjami usług.
-        exclude: '../src/{Entity,Enum,Model,Kernel.php}'
+        # Typy nie-usługowe (czyste dane / mapowanie ORM / statyczne helpery) nie mają być usługami.
+        exclude: '../src/{Entity,Enum,Model,Util,Kernel.php}'
 
     # Klucz szyfrowania poświadczeń IMAP; public, bo pobiera go Kernel::boot()
     # do wstrzyknięcia w EncryptedStringType (typ Doctrine bez własnego DI).

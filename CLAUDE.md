@@ -174,8 +174,10 @@ dopiero, gdy import, archiwum i weryfikacja są pewne.
         (bez osobnego CRUD-a — Attachment to czyste metadane, nie ma po co linkować). Tylko `index` +
         `detail`: `configureActions()` wyłącza `NEW/EDIT/DELETE/BATCH_DELETE` (`Message` to indeks — edycja
         bez sensu; kasowanie zarchiwizowanej poczty to etap 6 z audytem), wejście na te trasy → 403. Menu:
-        sekcja „Archiwum" → „Wiadomości". `size` renderowane generycznym `Field` (NIE `TextField` — ten
-        wymusza string i rzuca na wartości `int`) + `formatValue`. To NIE jest podgląd dla użytkowników
+        sekcja „Archiwum" → „Wiadomości". `size` renderowane jawnym `IntegerField` + `formatValue` przez
+        `App\Util\ByteFormatter` (ten sam formater wystawia filtr Twiga `|bytes` dla rozmiarów załączników
+        — jedno miejsce formatowania B/KB/MB); NIE `TextField` (rzuca na `int`) i NIE generyczny `Field`
+        (gubi `formatValue` — patrz gotcha). To NIE jest podgląd dla użytkowników
         (trójpanelowy Twig/UX + Voter + sandbox iframe) — ten zostaje Etapem 5; 3.4 to tani „wgląd admina"
         w efekt importu. Treść maila (`body`) renderujemy dopiero w etapie 5 (tu bez body/iframe). ➜ działa:
         login dev-admina, lista 3 maili z konta #67 (tematy/nazwy zdekodowane), detal #3 z tabelką 2
@@ -330,15 +332,18 @@ Eksploratora Windows pod `\\wsl.localhost\dev-edor-gw\root\projects\imap-archive
   `EasyAdminBundle.pl` — przy locale `pl` „Back to listing", badge Yes/No itd. lecą po polsku same.
   Z `en` panel jest angielski MIMO polskich etykiet pól (etykiety to nasze stringi, a chrome EA to
   jego domena tłumaczeń).
-- **EA: `formatValue()` na polu numerycznym jest ZJADANY przez `IntegerConfigurator`.** Kolejność
-  konfiguratorów: `CommonPostConfigurator` (stosuje `formatValue`, priorytet −9999) biegnie, ale pole
-  z kolumny `int` EA zgaduje jako `IntegerField`, którego konfigurator BEZWARUNKOWO nadpisuje
-  `formattedValue` surową liczbą. Skutek: `Field/IntegerField::new('size')->formatValue(fn…KB)` i tak
-  pokazuje `49189`. Pole WIRTUALNE (`TextField::new('sizeHuman')`) też nie ratuje — EA traktuje
-  nie-czytelną właściwość jako null → „Niedostępny". **Naprawa: własny szablon** przez
-  `setTemplatePath()` i formatowanie z `field.value` w Twigu (makro `admin/_bytes.html.twig`). Tak robi
-  `MessageCrudController` dla rozmiaru (etap 3.4). Dla `TextField` osobny haczyk: jego konfigurator
-  RZUCA na wartości nie-`string` (np. `int`) — patrz sam błąd „can't be converted into a string".
+- **EA: `formatValue()` działa TYLKO na polu o JAWNYM typie — generyczny `Field::new()` gubi callable.**
+  Zweryfikowane eksperymentalnie na `Message.size` (kolumna `int`): `IntegerField::new('size')
+  ->formatValue(fn…KB)` → „48,0 KB" ✅, ale `Field::new('size')->formatValue(fn…KB)` → surowe `49189` ❌.
+  Powód: przy generycznym `Field` EA zgaduje typ z metadanych Doctrine i promuje pole na `IntegerField`,
+  gubiąc po drodze callable `formatValue`. Przy jawnym typie callable przeżywa i wygrywa (stosuje go
+  `CommonPostConfigurator`, priorytet −9999, czyli OSTATNI — po konfiguratorze typu). **Zasada: pisz
+  jawny typ pola, gdy używasz `formatValue()`.** Dwa dodatkowe haczyki: (1) `TextField` RZUCA na
+  wartości nie-`string` (np. `int`) — błąd „can't be converted into a string", więc do liczb bierz
+  `IntegerField`/`NumberField`; (2) pole WIRTUALNE (nazwa spoza encji) + `formatValue` NIE zadziała —
+  EA nie odczyta właściwości → `null` → wyświetli „Niedostępny"; wirtualne pole renderuj własnym
+  szablonem czytającym `entity.instance` (tak działa `verifiedBadge`). Formatowanie rozmiarów trzymamy
+  w `App\Util\ByteFormatter` (+ filtr Twiga `|bytes`), żeby PHP i szablony liczyły to samo — etap 3.4.
 - **EA odwraca układ pól boolean NA DETALU (`flex-direction: row-reverse`) — rób to własnym szablonem
   w `<body>`, nie CSS-em w `<head>`.** Reguła `.ea-detail .field-group.field-boolean{flex-direction:
   row-reverse}` celowo daje układ „wartość z lewej, etykieta z prawej" (jak checkbox), łamiąc spójność

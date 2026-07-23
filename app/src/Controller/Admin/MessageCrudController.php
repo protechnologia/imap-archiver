@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller\Admin;
 
 use App\Entity\Message;
+use App\Util\ByteFormatter;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Action;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Actions;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Crud;
@@ -62,12 +63,9 @@ class MessageCrudController extends AbstractCrudController
             ->setFormat('yyyy-MM-dd HH:mm')
             ->setHelp('Z nagłówka <code>Date</code> wiadomości (deklarowana data wysłania), nie data przyjęcia przez serwer.');
 
-        // Rozmiar: mapowany `size` (int) → EA zgaduje IntegerField, a jego konfigurator nadpisuje
-        // `formatValue` surową liczbą (kolejność: formatValue → IntegerConfigurator zjada). Dlatego
-        // formatujemy własnym szablonem — pewnie i sortowalnie po prawdziwej kolumnie `size`.
         yield IntegerField::new('size', 'Rozmiar')
             ->setTextAlign('right')
-            ->setTemplatePath('admin/message_size.html.twig');
+            ->formatValue(static fn (?int $bytes): string => ByteFormatter::humanize($bytes));
         // Na LIŚCIE (tabela) boolean renderuje się bez problemu — zwykły wyśrodkowany badge.
         yield BooleanField::new('verified', 'Zweryfikowana')->renderAsSwitch(false)->onlyOnIndex();
         yield BooleanField::new('hasAttachments', 'Załączniki')->renderAsSwitch(false)->onlyOnIndex();
