@@ -31,21 +31,17 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  * `password` (mapped=false) i hashujemy w listenerze POST_SUBMIT, więc do encji
  * trafia już hash. Patrz addPasswordHashListener().
  */
-class UserCrudController extends AbstractCrudController
-{
-    public function __construct(private readonly UserPasswordHasherInterface $passwordHasher)
-    {
+class UserCrudController extends AbstractCrudController {
+    public function __construct(private readonly UserPasswordHasherInterface $passwordHasher) {
     }
 
     /** Encja obsługiwana przez ten CRUD (wymagane przez EasyAdmin). */
-    public static function getEntityFqcn(): string
-    {
+    public static function getEntityFqcn(): string {
         return User::class;
     }
 
     /** Etykiety encji, tytuły stron i domyślne sortowanie listy (po e-mailu rosnąco). */
-    public function configureCrud(Crud $crud): Crud
-    {
+    public function configureCrud(Crud $crud): Crud {
         return $crud
             ->setEntityLabelInSingular('Użytkownik')
             ->setEntityLabelInPlural('Użytkownicy')
@@ -56,8 +52,7 @@ class UserCrudController extends AbstractCrudController
     }
 
     /** Zmienia etykietę przycisku „Dodaj" i ustala kolejność akcji w wierszu listy. */
-    public function configureActions(Actions $actions): Actions
-    {
+    public function configureActions(Actions $actions): Actions {
         return $actions
             ->update(Crud::PAGE_INDEX, Action::NEW, fn (Action $a) => $a->setLabel('Dodaj użytkownika'))
             ->reorder(Crud::PAGE_INDEX, [Action::EDIT, Action::DELETE]);
@@ -67,8 +62,7 @@ class UserCrudController extends AbstractCrudController
      * Pola formularzy i list. Zależnie od strony ($pageName) renderujemy je inaczej:
      * e-mail jako tekst vs EmailField, hasło tylko na formularzach itd.
      */
-    public function configureFields(string $pageName): iterable
-    {
+    public function configureFields(string $pageName): iterable {
         yield IdField::new('id')->onlyOnIndex();
 
         // Na liście/podglądzie zwykły tekst (bez linku mailto:), na formularzach
@@ -113,14 +107,12 @@ class UserCrudController extends AbstractCrudController
     }
 
     /** Formularz dodawania — podpina listener hashujący hasło (patrz addPasswordHashListener()). */
-    public function createNewFormBuilder(EntityDto $entityDto, KeyValueStore $formOptions, AdminContext $context): FormBuilderInterface
-    {
+    public function createNewFormBuilder(EntityDto $entityDto, KeyValueStore $formOptions, AdminContext $context): FormBuilderInterface {
         return $this->addPasswordHashListener(parent::createNewFormBuilder($entityDto, $formOptions, $context));
     }
 
     /** Formularz edycji — ten sam listener; puste pole hasła = bez zmiany. */
-    public function createEditFormBuilder(EntityDto $entityDto, KeyValueStore $formOptions, AdminContext $context): FormBuilderInterface
-    {
+    public function createEditFormBuilder(EntityDto $entityDto, KeyValueStore $formOptions, AdminContext $context): FormBuilderInterface {
         return $this->addPasswordHashListener(parent::createEditFormBuilder($entityDto, $formOptions, $context));
     }
 
@@ -128,8 +120,7 @@ class UserCrudController extends AbstractCrudController
      * Po zatwierdzeniu formularza bierze plaintext z pola `password` (mapped=false),
      * hashuje i ustawia na encji. Puste pole = hasło bez zmian.
      */
-    private function addPasswordHashListener(FormBuilderInterface $formBuilder): FormBuilderInterface
-    {
+    private function addPasswordHashListener(FormBuilderInterface $formBuilder): FormBuilderInterface {
         $formBuilder->addEventListener(FormEvents::POST_SUBMIT, function (FormEvent $event): void {
             $form = $event->getForm();
             if (!$form->isValid()) {

@@ -26,15 +26,12 @@ use EasyCorp\Bundle\EasyAdminBundle\Field\TextField;
  * To NIE jest podgląd dla użytkowników (trójpanelowy Twig/UX + Voter + sandbox iframe) — ten powstaje
  * w etapie 5; treści maila (`body`) tu świadomie nie renderujemy, pokazujemy tylko metadane indeksu.
  */
-class MessageCrudController extends AbstractCrudController
-{
-    public static function getEntityFqcn(): string
-    {
+class MessageCrudController extends AbstractCrudController {
+    public static function getEntityFqcn(): string {
         return Message::class;
     }
 
-    public function configureCrud(Crud $crud): Crud
-    {
+    public function configureCrud(Crud $crud): Crud {
         return $crud
             ->setEntityLabelInSingular('Wiadomość')
             ->setEntityLabelInPlural('Wiadomości')
@@ -44,16 +41,14 @@ class MessageCrudController extends AbstractCrudController
             ->setPaginatorPageSize(50);
     }
 
-    public function configureActions(Actions $actions): Actions
-    {
+    public function configureActions(Actions $actions): Actions {
         // Indeks = tylko wgląd: żadnego zakładania/edycji/kasowania, jedynie przejście do detalu.
         return $actions
             ->add(Crud::PAGE_INDEX, Action::DETAIL)
             ->disable(Action::NEW, Action::EDIT, Action::DELETE, Action::BATCH_DELETE);
     }
 
-    public function configureFields(string $pageName): iterable
-    {
+    public function configureFields(string $pageName): iterable {
         yield IdField::new('id')->onlyOnIndex();
 
         yield TextField::new('subject', 'Temat');

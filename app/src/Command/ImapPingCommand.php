@@ -25,8 +25,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     name: 'app:imap:ping',
     description: 'Spike etapu 2: łączy się z IMAP konta i listuje foldery + nagłówki najnowszych wiadomości (read-only).',
 )]
-class ImapPingCommand extends Command
-{
+class ImapPingCommand extends Command {
     public function __construct(
         private readonly MailAccountRepository $mailAccountRepository,
         private readonly ImapConnectionFactory $connectionFactory,
@@ -34,15 +33,13 @@ class ImapPingCommand extends Command
         parent::__construct();
     }
 
-    protected function configure(): void
-    {
+    protected function configure(): void {
         $this
             ->addOption('account', null, InputOption::VALUE_REQUIRED, 'ID konta MailAccount')
             ->addOption('limit', null, InputOption::VALUE_REQUIRED, 'Ile najnowszych nagłówków pokazać', '5');
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output): int
-    {
+    protected function execute(InputInterface $input, OutputInterface $output): int {
         $io = new SymfonyStyle($input, $output);
 
         $accountId = (string) $input->getOption('account');
@@ -138,8 +135,7 @@ class ImapPingCommand extends Command
         }
     }
 
-    private function truncate(string $value, int $length): string
-    {
+    private function truncate(string $value, int $length): string {
         if (mb_strlen($value) <= $length) {
             return $value;
         }

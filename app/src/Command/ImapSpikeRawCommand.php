@@ -33,8 +33,7 @@ use Webklex\PHPIMAP\Message;
     name: 'app:imap:spike-raw',
     description: 'Spike etapu 3.0: porównuje pobranie bajtowo-wiernego .eml (rekonstrukcja vs BODY.PEEK[]).',
 )]
-class ImapSpikeRawCommand extends Command
-{
+class ImapSpikeRawCommand extends Command {
     public function __construct(
         private readonly MailAccountRepository $mailAccountRepository,
         private readonly ImapConnectionFactory $connectionFactory,
@@ -161,8 +160,7 @@ class ImapSpikeRawCommand extends Command
      *
      * @return array{0:mixed,1:mixed,2:string,3:string,4:string,5:string,6:string,7:string}
      */
-    private function evaluate(?string $eml, string $origMessageId, string $origSubject, int $origAttachments): array
-    {
+    private function evaluate(?string $eml, string $origMessageId, string $origSubject, int $origAttachments): array {
         if ($eml === null || $eml === '') {
             return ['—', '—', '—', '—', '—', '—', '—', '—'];
         }
@@ -193,8 +191,7 @@ class ImapSpikeRawCommand extends Command
         ];
     }
 
-    private function truncate(string $value, int $length): string
-    {
+    private function truncate(string $value, int $length): string {
         if (mb_strlen($value) <= $length) {
             return $value;
         }

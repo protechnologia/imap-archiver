@@ -20,8 +20,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
     name: 'app:user:create',
     description: 'Tworzy użytkownika (domyślnie z rolą ROLE_USER; --admin nadaje ROLE_ADMIN).',
 )]
-class CreateUserCommand extends Command
-{
+class CreateUserCommand extends Command {
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly UserRepository $userRepository,
@@ -30,16 +29,14 @@ class CreateUserCommand extends Command
         parent::__construct();
     }
 
-    protected function configure(): void
-    {
+    protected function configure(): void {
         $this
             ->addArgument('email', InputArgument::REQUIRED, 'Adres e-mail (login)')
             ->addArgument('password', InputArgument::OPTIONAL, 'Hasło (jeśli pominięte — zapyta interaktywnie)')
             ->addOption('admin', null, InputOption::VALUE_NONE, 'Nadaj rolę ROLE_ADMIN');
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output): int
-    {
+    protected function execute(InputInterface $input, OutputInterface $output): int {
         $io = new SymfonyStyle($input, $output);
 
         $email = (string) $input->getArgument('email');

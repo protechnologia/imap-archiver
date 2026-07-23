@@ -16,8 +16,7 @@ use Doctrine\ORM\Mapping as ORM;
  */
 #[ORM\Entity(repositoryClass: AttachmentRepository::class)]
 #[ORM\Table(name: 'attachment')]
-class Attachment
-{
+class Attachment {
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -48,8 +47,7 @@ class Attachment
      *
      * @return int|null Identyfikator, np. 15
      */
-    public function getId(): ?int
-    {
+    public function getId(): ?int {
         return $this->id;
     }
 
@@ -58,8 +56,7 @@ class Attachment
      *
      * @return Message|null Wiadomość, np. Message #42 ("Test z załącznikiem")
      */
-    public function getMessage(): ?Message
-    {
+    public function getMessage(): ?Message {
         return $this->message;
     }
 
@@ -70,8 +67,7 @@ class Attachment
      *
      * @return $this
      */
-    public function setMessage(?Message $message): static
-    {
+    public function setMessage(?Message $message): static {
         $this->message = $message;
 
         return $this;
@@ -82,8 +78,7 @@ class Attachment
      *
      * @return string|null Nazwa pliku, np. "faktura.pdf"
      */
-    public function getFilename(): ?string
-    {
+    public function getFilename(): ?string {
         return $this->filename;
     }
 
@@ -94,8 +89,7 @@ class Attachment
      *
      * @return $this
      */
-    public function setFilename(?string $filename): static
-    {
+    public function setFilename(?string $filename): static {
         $this->filename = $filename;
 
         return $this;
@@ -106,8 +100,7 @@ class Attachment
      *
      * @return string|null Typ MIME, np. "application/pdf"
      */
-    public function getMimeType(): ?string
-    {
+    public function getMimeType(): ?string {
         return $this->mimeType;
     }
 
@@ -118,8 +111,7 @@ class Attachment
      *
      * @return $this
      */
-    public function setMimeType(?string $mimeType): static
-    {
+    public function setMimeType(?string $mimeType): static {
         $this->mimeType = $mimeType;
 
         return $this;
@@ -130,8 +122,7 @@ class Attachment
      *
      * @return int|null Rozmiar w bajtach, np. 84210
      */
-    public function getSize(): ?int
-    {
+    public function getSize(): ?int {
         return $this->size;
     }
 
@@ -142,8 +133,7 @@ class Attachment
      *
      * @return $this
      */
-    public function setSize(?int $size): static
-    {
+    public function setSize(?int $size): static {
         $this->size = $size;
 
         return $this;
@@ -154,8 +144,7 @@ class Attachment
      *
      * @return string|null SHA-256, np. "a1b2c3d4…" (64 znaki hex)
      */
-    public function getSha256(): ?string
-    {
+    public function getSha256(): ?string {
         return $this->sha256;
     }
 
@@ -166,8 +155,7 @@ class Attachment
      *
      * @return $this
      */
-    public function setSha256(?string $sha256): static
-    {
+    public function setSha256(?string $sha256): static {
         $this->sha256 = $sha256;
 
         return $this;
@@ -178,8 +166,7 @@ class Attachment
      *
      * @return string Etykieta, np. "faktura.pdf"
      */
-    public function __toString(): string
-    {
+    public function __toString(): string {
         return $this->filename ?? sprintf('Attachment #%s', $this->id ?? '?');
     }
 }

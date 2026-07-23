@@ -14,29 +14,24 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[IsGranted('ROLE_ADMIN')]
 #[AdminDashboard(routePath: '/admin', routeName: 'admin')]
-class DashboardController extends AbstractDashboardController
-{
-    public function __construct(private readonly AdminUrlGenerator $adminUrlGenerator)
-    {
+class DashboardController extends AbstractDashboardController {
+    public function __construct(private readonly AdminUrlGenerator $adminUrlGenerator) {
     }
 
-    public function index(): Response
-    {
+    public function index(): Response {
         // Pulpit nie ma własnej treści — od razu kierujemy na listę użytkowników.
         return $this->redirect(
             $this->adminUrlGenerator->setController(UserCrudController::class)->generateUrl()
         );
     }
 
-    public function configureDashboard(): Dashboard
-    {
+    public function configureDashboard(): Dashboard {
         return Dashboard::new()
             ->setTitle('imap-archiver — administracja')
             ->setFaviconPath('favicon.ico');
     }
 
-    public function configureMenuItems(): iterable
-    {
+    public function configureMenuItems(): iterable {
         yield MenuItem::linkToUrl('Powrót do aplikacji', 'fa fa-arrow-left', $this->generateUrl('app_home'));
         yield MenuItem::section('Zarządzanie');
         yield MenuItem::linkTo(UserCrudController::class, 'Użytkownicy', 'fa fa-users');

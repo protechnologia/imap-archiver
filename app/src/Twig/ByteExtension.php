@@ -16,13 +16,11 @@ use Twig\TwigFilter;
  *
  * Użycie: `{{ attachment.size|bytes }}` → "11,8 KB".
  */
-final class ByteExtension extends AbstractExtension
-{
+final class ByteExtension extends AbstractExtension {
     /**
      * @return list<TwigFilter> Filtry wystawiane szablonom
      */
-    public function getFilters(): array
-    {
+    public function getFilters(): array {
         return [
             new TwigFilter('bytes', ByteFormatter::humanize(...)),
         ];

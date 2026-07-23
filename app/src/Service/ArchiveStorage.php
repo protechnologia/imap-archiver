@@ -21,8 +21,7 @@ use Symfony\Component\Filesystem\Filesystem;
  * Bezstanowy — gotowy na worker mode (etap 4). Nie zna ścieżki hosta; operuje tylko na
  * `ARCHIVE_DIR` (rozdział `ARCHIVE_DIR` vs `ARCHIVE_HOST_DIR` — patrz README/CLAUDE).
  */
-final class ArchiveStorage
-{
+final class ArchiveStorage {
     /**
      * @param string     $archiveDir Katalog archiwum widziany w kontenerze, np. "/archive"
      * @param Filesystem $filesystem Komponent Symfony do operacji na plikach (atomowy zapis)
@@ -47,8 +46,7 @@ final class ArchiveStorage
      *
      * @throws \Symfony\Component\Filesystem\Exception\IOException gdy zapis się nie powiedzie
      */
-    public function store(int $accountId, \DateTimeImmutable $date, string $rawEml): ArchivedFile
-    {
+    public function store(int $accountId, \DateTimeImmutable $date, string $rawEml): ArchivedFile {
         $sha256 = hash('sha256', $rawEml);
         $relativePath = $this->buildRelativePath($accountId, $date, $sha256);
         $absolutePath = $this->absolutePath($relativePath);
@@ -69,8 +67,7 @@ final class ArchiveStorage
      *
      * @return string Ścieżka bezwzględna, np. "/archive/67/2026/06/6f04….eml"
      */
-    public function path(string $relativePath): string
-    {
+    public function path(string $relativePath): string {
         return $this->absolutePath($this->assertSafeRelative($relativePath));
     }
 
@@ -83,8 +80,7 @@ final class ArchiveStorage
      *
      * @throws \Symfony\Component\Filesystem\Exception\IOException gdy pliku nie da się odczytać
      */
-    public function read(string $relativePath): string
-    {
+    public function read(string $relativePath): string {
         return $this->filesystem->readFile($this->path($relativePath));
     }
 
@@ -99,8 +95,7 @@ final class ArchiveStorage
      *
      * @throws \InvalidArgumentException gdy accountId niedodatni lub sha256 nie jest 64 hex
      */
-    private function buildRelativePath(int $accountId, \DateTimeImmutable $date, string $sha256): string
-    {
+    private function buildRelativePath(int $accountId, \DateTimeImmutable $date, string $sha256): string {
         if ($accountId <= 0) {
             throw new \InvalidArgumentException(sprintf('accountId musi być dodatni, dostałem %d.', $accountId));
         }
@@ -118,8 +113,7 @@ final class ArchiveStorage
      *
      * @return string Ścieżka bezwzględna, np. "/archive/67/2026/06/6f04….eml"
      */
-    private function absolutePath(string $relativePath): string
-    {
+    private function absolutePath(string $relativePath): string {
         return rtrim($this->archiveDir, '/') . '/' . $relativePath;
     }
 
@@ -132,8 +126,7 @@ final class ArchiveStorage
      *
      * @throws \InvalidArgumentException gdy ścieżka jest pusta, absolutna lub zawiera ".."
      */
-    private function assertSafeRelative(string $relativePath): string
-    {
+    private function assertSafeRelative(string $relativePath): string {
         if ($relativePath === '' || str_starts_with($relativePath, '/') || str_contains($relativePath, '..')) {
             throw new \InvalidArgumentException(sprintf('Niebezpieczna ścieżka względna: "%s".', $relativePath));
         }

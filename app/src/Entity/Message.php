@@ -27,8 +27,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\UniqueConstraint(name: 'uniq_message_account_sha256', columns: ['account_id', 'sha256'])]
 #[ORM\Index(name: 'idx_message_message_id', columns: ['message_id'])]
 #[ORM\Index(name: 'idx_message_account_date', columns: ['account_id', 'sent_at'])]
-class Message
-{
+class Message {
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -98,8 +97,7 @@ class Message
     #[ORM\OneToMany(targetEntity: Attachment::class, mappedBy: 'message', cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $attachments;
 
-    public function __construct()
-    {
+    public function __construct() {
         $this->attachments = new ArrayCollection();
     }
 
@@ -108,8 +106,7 @@ class Message
      *
      * @return int|null Identyfikator, np. 42
      */
-    public function getId(): ?int
-    {
+    public function getId(): ?int {
         return $this->id;
     }
 
@@ -118,8 +115,7 @@ class Message
      *
      * @return MailAccount|null Konto, np. MailAccount #12 (poczta@example.com)
      */
-    public function getAccount(): ?MailAccount
-    {
+    public function getAccount(): ?MailAccount {
         return $this->account;
     }
 
@@ -130,8 +126,7 @@ class Message
      *
      * @return $this
      */
-    public function setAccount(?MailAccount $account): static
-    {
+    public function setAccount(?MailAccount $account): static {
         $this->account = $account;
 
         return $this;
@@ -142,8 +137,7 @@ class Message
      *
      * @return string Nazwa folderu, np. "INBOX"
      */
-    public function getFolder(): string
-    {
+    public function getFolder(): string {
         return $this->folder;
     }
 
@@ -154,8 +148,7 @@ class Message
      *
      * @return $this
      */
-    public function setFolder(string $folder): static
-    {
+    public function setFolder(string $folder): static {
         $this->folder = $folder;
 
         return $this;
@@ -166,8 +159,7 @@ class Message
      *
      * @return string|null Message-ID, np. "84df8acb-6be1-41a6-8e11-a7151eb385fa@example.com"
      */
-    public function getMessageId(): ?string
-    {
+    public function getMessageId(): ?string {
         return $this->messageId;
     }
 
@@ -178,8 +170,7 @@ class Message
      *
      * @return $this
      */
-    public function setMessageId(?string $messageId): static
-    {
+    public function setMessageId(?string $messageId): static {
         $this->messageId = $messageId;
 
         return $this;
@@ -190,8 +181,7 @@ class Message
      *
      * @return string|null Temat, np. "Test z załącznikiem"
      */
-    public function getSubject(): ?string
-    {
+    public function getSubject(): ?string {
         return $this->subject;
     }
 
@@ -202,8 +192,7 @@ class Message
      *
      * @return $this
      */
-    public function setSubject(?string $subject): static
-    {
+    public function setSubject(?string $subject): static {
         $this->subject = $subject;
 
         return $this;
@@ -214,8 +203,7 @@ class Message
      *
      * @return string|null Nazwa, np. "Jan Kowalski"
      */
-    public function getFromName(): ?string
-    {
+    public function getFromName(): ?string {
         return $this->fromName;
     }
 
@@ -226,8 +214,7 @@ class Message
      *
      * @return $this
      */
-    public function setFromName(?string $fromName): static
-    {
+    public function setFromName(?string $fromName): static {
         $this->fromName = $fromName;
 
         return $this;
@@ -238,8 +225,7 @@ class Message
      *
      * @return string|null Adres, np. "jan.kowalski@example.com"
      */
-    public function getFromEmail(): ?string
-    {
+    public function getFromEmail(): ?string {
         return $this->fromEmail;
     }
 
@@ -250,8 +236,7 @@ class Message
      *
      * @return $this
      */
-    public function setFromEmail(?string $fromEmail): static
-    {
+    public function setFromEmail(?string $fromEmail): static {
         $this->fromEmail = $fromEmail;
 
         return $this;
@@ -262,8 +247,7 @@ class Message
      *
      * @return \DateTimeImmutable|null Data, np. new \DateTimeImmutable('2026-06-16 07:58:58')
      */
-    public function getDate(): ?\DateTimeImmutable
-    {
+    public function getDate(): ?\DateTimeImmutable {
         return $this->date;
     }
 
@@ -274,8 +258,7 @@ class Message
      *
      * @return $this
      */
-    public function setDate(?\DateTimeImmutable $date): static
-    {
+    public function setDate(?\DateTimeImmutable $date): static {
         $this->date = $date;
 
         return $this;
@@ -286,8 +269,7 @@ class Message
      *
      * @return int Rozmiar w bajtach, np. 49189
      */
-    public function getSize(): int
-    {
+    public function getSize(): int {
         return $this->size;
     }
 
@@ -298,8 +280,7 @@ class Message
      *
      * @return $this
      */
-    public function setSize(int $size): static
-    {
+    public function setSize(int $size): static {
         $this->size = $size;
 
         return $this;
@@ -310,8 +291,7 @@ class Message
      *
      * @return string SHA-256, np. "6f041317c753…e1" (64 znaki hex)
      */
-    public function getSha256(): string
-    {
+    public function getSha256(): string {
         return $this->sha256;
     }
 
@@ -322,8 +302,7 @@ class Message
      *
      * @return $this
      */
-    public function setSha256(string $sha256): static
-    {
+    public function setSha256(string $sha256): static {
         $this->sha256 = $sha256;
 
         return $this;
@@ -334,8 +313,7 @@ class Message
      *
      * @return bool Czy ma załączniki, np. true
      */
-    public function hasAttachments(): bool
-    {
+    public function hasAttachments(): bool {
         return $this->hasAttachments;
     }
 
@@ -346,8 +324,7 @@ class Message
      *
      * @return $this
      */
-    public function setHasAttachments(bool $hasAttachments): static
-    {
+    public function setHasAttachments(bool $hasAttachments): static {
         $this->hasAttachments = $hasAttachments;
 
         return $this;
@@ -358,8 +335,7 @@ class Message
      *
      * @return bool Czy zweryfikowana, np. true
      */
-    public function isVerified(): bool
-    {
+    public function isVerified(): bool {
         return $this->verified;
     }
 
@@ -370,8 +346,7 @@ class Message
      *
      * @return $this
      */
-    public function setVerified(bool $verified): static
-    {
+    public function setVerified(bool $verified): static {
         $this->verified = $verified;
 
         return $this;
@@ -382,8 +357,7 @@ class Message
      *
      * @return string Ścieżka względna, np. "67/2026/06/6f041317c753….eml"
      */
-    public function getArchivePath(): string
-    {
+    public function getArchivePath(): string {
         return $this->archivePath;
     }
 
@@ -394,8 +368,7 @@ class Message
      *
      * @return $this
      */
-    public function setArchivePath(string $archivePath): static
-    {
+    public function setArchivePath(string $archivePath): static {
         $this->archivePath = $archivePath;
 
         return $this;
@@ -406,8 +379,7 @@ class Message
      *
      * @return string|null Treść, np. "Cześć, w załączniku przesyłam fakturę…"
      */
-    public function getBody(): ?string
-    {
+    public function getBody(): ?string {
         return $this->body;
     }
 
@@ -418,8 +390,7 @@ class Message
      *
      * @return $this
      */
-    public function setBody(?string $body): static
-    {
+    public function setBody(?string $body): static {
         $this->body = $body;
 
         return $this;
@@ -430,8 +401,7 @@ class Message
      *
      * @return int|null UID, np. 3
      */
-    public function getImapUid(): ?int
-    {
+    public function getImapUid(): ?int {
         return $this->imapUid;
     }
 
@@ -442,8 +412,7 @@ class Message
      *
      * @return $this
      */
-    public function setImapUid(?int $imapUid): static
-    {
+    public function setImapUid(?int $imapUid): static {
         $this->imapUid = $imapUid;
 
         return $this;
@@ -454,8 +423,7 @@ class Message
      *
      * @return Collection<int, Attachment> Kolekcja, np. [Attachment("faktura.pdf"), Attachment("logo.png")]
      */
-    public function getAttachments(): Collection
-    {
+    public function getAttachments(): Collection {
         return $this->attachments;
     }
 
@@ -466,8 +434,7 @@ class Message
      *
      * @return $this
      */
-    public function addAttachment(Attachment $attachment): static
-    {
+    public function addAttachment(Attachment $attachment): static {
         if (!$this->attachments->contains($attachment)) {
             $this->attachments->add($attachment);
             $attachment->setMessage($this);
@@ -483,8 +450,7 @@ class Message
      *
      * @return $this
      */
-    public function removeAttachment(Attachment $attachment): static
-    {
+    public function removeAttachment(Attachment $attachment): static {
         if ($this->attachments->removeElement($attachment)) {
             // Strona właścicielska to Attachment — zerujemy, jeśli wciąż wskazuje na nas.
             if ($attachment->getMessage() === $this) {
@@ -500,8 +466,7 @@ class Message
      *
      * @return string Etykieta, np. "Test z załącznikiem"
      */
-    public function __toString(): string
-    {
+    public function __toString(): string {
         return $this->subject ?? sprintf('Message #%s', $this->id ?? '?');
     }
 }

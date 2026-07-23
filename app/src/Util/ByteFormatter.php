@@ -14,11 +14,9 @@ namespace App\Util;
  * Czysty helper bez stanu i zależności — stąd metoda statyczna i brak rejestracji jako usługa
  * (patrz `exclude` w `config/services.yaml`).
  */
-final class ByteFormatter
-{
+final class ByteFormatter {
     /** Czysty helper — nie instancjonujemy. */
-    private function __construct()
-    {
+    private function __construct() {
     }
 
     /**
@@ -28,8 +26,7 @@ final class ByteFormatter
      *
      * @return string Sformatowany rozmiar, np. "48,0 KB"; "—" gdy nieznany
      */
-    public static function humanize(?int $bytes): string
-    {
+    public static function humanize(?int $bytes): string {
         if ($bytes === null) {
             return '—';
         }

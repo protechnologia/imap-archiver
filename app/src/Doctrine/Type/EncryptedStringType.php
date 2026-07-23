@@ -19,25 +19,21 @@ use Doctrine\DBAL\Types\Type;
  *
  * DBAL 4: brak getName()/requiresSQLCommentHint() — nazwa to wyłącznie klucz rejestracji.
  */
-final class EncryptedStringType extends Type
-{
+final class EncryptedStringType extends Type {
     public const NAME = 'encrypted_string';
 
     private ?CredentialEncryptor $encryptor = null;
 
-    public function setEncryptor(CredentialEncryptor $encryptor): void
-    {
+    public function setEncryptor(CredentialEncryptor $encryptor): void {
         $this->encryptor = $encryptor;
     }
 
-    public function getSQLDeclaration(array $column, AbstractPlatform $platform): string
-    {
+    public function getSQLDeclaration(array $column, AbstractPlatform $platform): string {
         // Szyfrogram base64 — zmienna długość, trzymamy w TEXT.
         return $platform->getClobTypeDeclarationSQL($column);
     }
 
-    public function convertToDatabaseValue(mixed $value, AbstractPlatform $platform): ?string
-    {
+    public function convertToDatabaseValue(mixed $value, AbstractPlatform $platform): ?string {
         if ($value === null) {
             return null;
         }
@@ -45,8 +41,7 @@ final class EncryptedStringType extends Type
         return $this->encryptor()->encrypt((string) $value);
     }
 
-    public function convertToPHPValue(mixed $value, AbstractPlatform $platform): ?string
-    {
+    public function convertToPHPValue(mixed $value, AbstractPlatform $platform): ?string {
         if ($value === null) {
             return null;
         }
@@ -54,8 +49,7 @@ final class EncryptedStringType extends Type
         return $this->encryptor()->decrypt((string) $value);
     }
 
-    private function encryptor(): CredentialEncryptor
-    {
+    private function encryptor(): CredentialEncryptor {
         if ($this->encryptor === null) {
             throw new \LogicException(
                 'EncryptedStringType nie ma wstrzykniętego CredentialEncryptor — sprawdź Kernel::boot().'

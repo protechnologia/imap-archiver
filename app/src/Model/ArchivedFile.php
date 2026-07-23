@@ -17,15 +17,14 @@ namespace App\Model;
  *       size:         49189,
  *   }
  */
-final readonly class ArchivedFile
-{
+final readonly class ArchivedFile {
     public function __construct(
         /** Ścieżka względna w archiwum, np. "67/2026/06/6f041317c753….eml". */
         public string $relativePath,
 
         /** SHA-256 (hex) zapisanych bajtów, np. "6f041317c753…e1" (64 znaki). */
         public string $sha256,
-        
+
         /** Rozmiar zapisanych bajtów, np. 49189. */
         public int $size,
     ) {

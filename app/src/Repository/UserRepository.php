@@ -14,18 +14,15 @@ use Symfony\Component\Security\Core\User\PasswordUpgraderInterface;
 /**
  * @extends ServiceEntityRepository<User>
  */
-class UserRepository extends ServiceEntityRepository implements PasswordUpgraderInterface
-{
-    public function __construct(ManagerRegistry $registry)
-    {
+class UserRepository extends ServiceEntityRepository implements PasswordUpgraderInterface {
+    public function __construct(ManagerRegistry $registry) {
         parent::__construct($registry, User::class);
     }
 
     /**
      * Automatyczne przehashowanie hasła w czasie (np. po zmianie algorytmu).
      */
-    public function upgradePassword(PasswordAuthenticatedUserInterface $user, string $newHashedPassword): void
-    {
+    public function upgradePassword(PasswordAuthenticatedUserInterface $user, string $newHashedPassword): void {
         if (!$user instanceof User) {
             throw new UnsupportedUserException(sprintf('Instancje "%s" nie są obsługiwane.', $user::class));
         }

@@ -25,7 +25,6 @@ use Webklex\PHPIMAP\Message as ImapMessage;
  * i weryfikacja należą do koordynatora (`ImportManager`). Bezstanowy — gotowy na worker mode (etap 4).
  */
 final class MessageFactory {
-
     /**
      * Konfiguracja webklex dla parsowania ze stringa: dekoder nagłówków przez `iconv`.
      *
@@ -147,8 +146,7 @@ final class MessageFactory {
 
         try {
             return \DateTimeImmutable::createFromInterface($parsed->getDate()->toDate());
-        }
-        catch (\Throwable) {
+        } catch (\Throwable) {
             return null;
         }
     }

@@ -10,12 +10,10 @@ use Doctrine\DBAL\Types\Type;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\HttpKernel\Kernel as BaseKernel;
 
-class Kernel extends BaseKernel
-{
+class Kernel extends BaseKernel {
     use MicroKernelTrait;
 
-    public function boot(): void
-    {
+    public function boot(): void {
         parent::boot();
 
         // Typy Doctrine to globalne singletony bez DI. Rejestrujemy `encrypted_string`

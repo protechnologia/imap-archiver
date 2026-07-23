@@ -10,8 +10,7 @@ namespace App\Enum;
  * Jeden punkt prawdy dla całej aplikacji: warstwa IMAP (etap 2) i szyfrowanie
  * poświadczeń (etap 1.4) rozgałęziają logikę po tej wartości.
  */
-enum AuthType: string
-{
+enum AuthType: string {
     /** Klasyczny login + hasło (np. własny serwer IMAP / Dovecot). */
     case Password = 'password';
 
@@ -19,8 +18,7 @@ enum AuthType: string
     case Xoauth2 = 'xoauth2';
 
     /** Etykieta po polsku do UI (EasyAdmin — etap 1.5). */
-    public function label(): string
-    {
+    public function label(): string {
         return match ($this) {
             self::Password => 'Hasło',
             self::Xoauth2 => 'XOAUTH2',

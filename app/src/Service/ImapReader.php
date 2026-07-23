@@ -27,7 +27,6 @@ use Webklex\PHPIMAP\IMAP;
  * nie kasuje. Pełne „dlaczego" w README → „Ciekawostki techniczne".
  */
 final class ImapReader {
-
     public function __construct(
         private readonly ImapConnectionFactory $connectionFactory,
     ) {
@@ -79,8 +78,7 @@ final class ImapReader {
             foreach ($this->searchYear($folder, $year) as $uid) {
                 yield $this->tryFetch($connection, $uid);
             }
-        }
-        finally {
+        } finally {
             $client->disconnect();
         }
     }
@@ -103,8 +101,7 @@ final class ImapReader {
      *
      * @return list<int> UID-y rosnąco, np. [3, 7, 12]
      */
-    private function searchYear(Folder $folder, int $year): array
-    {
+    private function searchYear(Folder $folder, int $year): array {
         $since  = new \DateTimeImmutable(sprintf('%d-01-01', $year));
         $before = new \DateTimeImmutable(sprintf('%d-01-01', $year + 1));
 
@@ -133,13 +130,12 @@ final class ImapReader {
      *
      * @return FetchResult Sukces (`RawMessage`) albo porażka (uid + powód)
      */
-    private function tryFetch( ImapProtocol $connection, int $uid ): FetchResult {
+    private function tryFetch(ImapProtocol $connection, int $uid): FetchResult {
         try {
             $raw = $this->fetchRaw($connection, $uid);
             return FetchResult::ok($raw);
-        }
-        catch( \Throwable $e ) {
-            return FetchResult::failure( $uid, $e->getMessage() );
+        } catch (\Throwable $e) {
+            return FetchResult::failure($uid, $e->getMessage());
         }
     }
 
@@ -173,7 +169,7 @@ final class ImapReader {
         }
 
         $internalDate = $this->parseInternalDate($data[$uid]['INTERNALDATE'] ?? null);
-        $rawMessage   = new RawMessage($uid, $raw, $internalDate );
+        $rawMessage   = new RawMessage($uid, $raw, $internalDate);
 
         return $rawMessage;
     }

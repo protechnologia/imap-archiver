@@ -25,7 +25,6 @@ namespace App\Model;
  *   }
  */
 final readonly class ImportSummary {
-
     /**
      * @param list<string> $errors Komunikaty błędów per wiadomość (import leci dalej mimo błędu jednej)
      */

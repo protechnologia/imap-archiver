@@ -24,8 +24,7 @@ use Doctrine\ORM\EntityManagerInterface;
  * EM przy dużej skali to etap 4; tu (mały zakres) flushujemy per mail dla prostoty i idempotencji
  * WEWNĄTRZ przebiegu (kolejny duplikat w tym samym roku widzi już zapisany wpis).
  */
-final class ImportManager
-{
+final class ImportManager {
     public function __construct(
         private readonly ImapReader $reader,
         private readonly ArchiveStorage $archiveStorage,
@@ -68,10 +67,10 @@ final class ImportManager
         // (brak folderu itd.) nie dojdzie tu — przerwie iterację wyjątkiem; łapiemy tylko błędy
         // pojedynczego maila: porażkę pobrania (isOk()==false, już oznaczoną przez readera) oraz
         // nasz błąd zapisu/indeksu/weryfikacji (try/catch wokół przetwarzania).
-        foreach( $this->reader->readYear($account, $year) as $result ) {
+        foreach ($this->reader->readYear($account, $year) as $result) {
             ++$candidates;
 
-            if( ! $result->isOk() ) {
+            if (! $result->isOk()) {
                 $errors[] = sprintf('UID %d: %s', $result->uid, $result->error);
                 continue;
             }
@@ -80,12 +79,12 @@ final class ImportManager
                 $sha256 = hash('sha256', $result->message->raw);
 
                 // Idempotencja: te same bajty na tym koncie już są → pomiń (nie duplikuj).
-                if( $this->messages->existsForContent($accountId, $sha256) ) {
+                if ($this->messages->existsForContent($accountId, $sha256)) {
                     ++$skipped;
                     continue;
                 }
 
-                if( $dryRun ) {
+                if ($dryRun) {
                     // Próbnie: nic nie zapisujemy; liczymy, ile BY zaimportowano (weryfikacja niemożliwa).
                     ++$imported;
                     continue;
@@ -94,14 +93,12 @@ final class ImportManager
                 $message = $this->persist($account, $accountId, $result->message);
                 ++$imported;
 
-                if( $this->verify($message) ) {
+                if ($this->verify($message)) {
                     ++$verified;
-                }
-                else {
+                } else {
                     $errors[] = sprintf('UID %d: weryfikacja checksumu nie powiodła się (plik %s)', $result->uid, $message->getArchivePath());
                 }
-            }
-            catch (\Throwable $e) {
+            } catch (\Throwable $e) {
                 $errors[] = sprintf('UID %d: %s', $result->uid, $e->getMessage());
             }
         }
@@ -154,7 +151,7 @@ final class ImportManager
     private function verify(Message $message): bool {
         $onDisk = $this->archiveStorage->read($message->getArchivePath());
 
-        if( hash('sha256', $onDisk) !== $message->getSha256() ) {
+        if (hash('sha256', $onDisk) !== $message->getSha256()) {
             return false;
         }
 

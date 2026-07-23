@@ -20,7 +20,6 @@ namespace App\Model;
  *   }
  */
 final readonly class RawMessage {
-
     public function __construct(
         /** UID wiadomości w folderze IMAP, np. 3. */
         public int $uid,
@@ -32,5 +31,5 @@ final readonly class RawMessage {
         public \DateTimeImmutable $internalDate,
     ) {
     }
-    
+
 }

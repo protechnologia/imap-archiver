@@ -18,8 +18,7 @@ use Symfony\Component\Validator\Constraints as Assert;
  * `secret`, szyfrowane at-rest przez typ `encrypted_string`, NIGDY w plaintext.
  */
 #[ORM\Entity(repositoryClass: MailAccountRepository::class)]
-class MailAccount
-{
+class MailAccount {
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -69,8 +68,7 @@ class MailAccount
     #[ORM\ManyToMany(targetEntity: User::class, inversedBy: 'mailAccounts')]
     private Collection $users;
 
-    public function __construct()
-    {
+    public function __construct() {
         $this->users = new ArrayCollection();
     }
 
@@ -79,8 +77,7 @@ class MailAccount
      *
      * @return int|null Identyfikator, np. 67
      */
-    public function getId(): ?int
-    {
+    public function getId(): ?int {
         return $this->id;
     }
 
@@ -89,8 +86,7 @@ class MailAccount
      *
      * @return string Etykieta, np. "Poczta firmowa"
      */
-    public function getLabel(): string
-    {
+    public function getLabel(): string {
         return $this->label;
     }
 
@@ -101,8 +97,7 @@ class MailAccount
      *
      * @return $this
      */
-    public function setLabel(string $label): static
-    {
+    public function setLabel(string $label): static {
         $this->label = $label;
 
         return $this;
@@ -113,8 +108,7 @@ class MailAccount
      *
      * @return string Adres serwera, np. "imap.example.com"
      */
-    public function getHost(): string
-    {
+    public function getHost(): string {
         return $this->host;
     }
 
@@ -125,8 +119,7 @@ class MailAccount
      *
      * @return $this
      */
-    public function setHost(string $host): static
-    {
+    public function setHost(string $host): static {
         $this->host = $host;
 
         return $this;
@@ -137,8 +130,7 @@ class MailAccount
      *
      * @return int Port, np. 993 (implicit SSL) albo 143 (STARTTLS)
      */
-    public function getPort(): int
-    {
+    public function getPort(): int {
         return $this->port;
     }
 
@@ -149,8 +141,7 @@ class MailAccount
      *
      * @return $this
      */
-    public function setPort(int $port): static
-    {
+    public function setPort(int $port): static {
         $this->port = $port;
 
         return $this;
@@ -161,8 +152,7 @@ class MailAccount
      *
      * @return string Login, np. "poczta@example.com"
      */
-    public function getImapLogin(): string
-    {
+    public function getImapLogin(): string {
         return $this->imapLogin;
     }
 
@@ -173,8 +163,7 @@ class MailAccount
      *
      * @return $this
      */
-    public function setImapLogin(string $imapLogin): static
-    {
+    public function setImapLogin(string $imapLogin): static {
         $this->imapLogin = $imapLogin;
 
         return $this;
@@ -185,8 +174,7 @@ class MailAccount
      *
      * @return string Nazwa folderu, np. "INBOX" (albo "INBOX.Archiwum")
      */
-    public function getFolder(): string
-    {
+    public function getFolder(): string {
         return $this->folder;
     }
 
@@ -197,8 +185,7 @@ class MailAccount
      *
      * @return $this
      */
-    public function setFolder(string $folder): static
-    {
+    public function setFolder(string $folder): static {
         $this->folder = $folder;
 
         return $this;
@@ -209,8 +196,7 @@ class MailAccount
      *
      * @return AuthType Typ, np. AuthType::Password
      */
-    public function getAuthType(): AuthType
-    {
+    public function getAuthType(): AuthType {
         return $this->authType;
     }
 
@@ -221,8 +207,7 @@ class MailAccount
      *
      * @return $this
      */
-    public function setAuthType(AuthType $authType): static
-    {
+    public function setAuthType(AuthType $authType): static {
         $this->authType = $authType;
 
         return $this;
@@ -233,8 +218,7 @@ class MailAccount
      *
      * @return string|null Hasło/refresh_token, np. "TajneHasło123" (w bazie leży szyfrogram)
      */
-    public function getSecret(): ?string
-    {
+    public function getSecret(): ?string {
         return $this->secret;
     }
 
@@ -245,8 +229,7 @@ class MailAccount
      *
      * @return $this
      */
-    public function setSecret(?string $secret): static
-    {
+    public function setSecret(?string $secret): static {
         $this->secret = $secret;
 
         return $this;
@@ -257,8 +240,7 @@ class MailAccount
      *
      * @return bool Czy ustawione, np. true
      */
-    public function hasSecret(): bool
-    {
+    public function hasSecret(): bool {
         return $this->secret !== null && $this->secret !== '';
     }
 
@@ -267,8 +249,7 @@ class MailAccount
      *
      * @return Collection<int, User> Kolekcja, np. [User(protechnologia@gmail.com), User(admin@example.com)]
      */
-    public function getUsers(): Collection
-    {
+    public function getUsers(): Collection {
         return $this->users;
     }
 
@@ -279,8 +260,7 @@ class MailAccount
      *
      * @return $this
      */
-    public function addUser(User $user): static
-    {
+    public function addUser(User $user): static {
         if (!$this->users->contains($user)) {
             $this->users->add($user);
         }
@@ -295,8 +275,7 @@ class MailAccount
      *
      * @return $this
      */
-    public function removeUser(User $user): static
-    {
+    public function removeUser(User $user): static {
         $this->users->removeElement($user);
 
         return $this;
@@ -307,8 +286,7 @@ class MailAccount
      *
      * @return string Etykieta, np. "Poczta firmowa"
      */
-    public function __toString(): string
-    {
+    public function __toString(): string {
         return $this->label ?? '';
     }
 }

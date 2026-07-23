@@ -21,15 +21,12 @@ use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Form\FormEvent;
 use Symfony\Component\Form\FormEvents;
 
-class MailAccountCrudController extends AbstractCrudController
-{
-    public static function getEntityFqcn(): string
-    {
+class MailAccountCrudController extends AbstractCrudController {
+    public static function getEntityFqcn(): string {
         return MailAccount::class;
     }
 
-    public function configureCrud(Crud $crud): Crud
-    {
+    public function configureCrud(Crud $crud): Crud {
         return $crud
             ->setEntityLabelInSingular('Konto IMAP')
             ->setEntityLabelInPlural('Konta IMAP')
@@ -39,15 +36,13 @@ class MailAccountCrudController extends AbstractCrudController
             ->setDefaultSort(['label' => 'ASC']);
     }
 
-    public function configureActions(Actions $actions): Actions
-    {
+    public function configureActions(Actions $actions): Actions {
         return $actions
             ->update(Crud::PAGE_INDEX, Action::NEW, fn (Action $a) => $a->setLabel('Dodaj konto'))
             ->reorder(Crud::PAGE_INDEX, [Action::EDIT, Action::DELETE]);
     }
 
-    public function configureFields(string $pageName): iterable
-    {
+    public function configureFields(string $pageName): iterable {
         yield IdField::new('id')->onlyOnIndex();
 
         yield TextField::new('label', 'Nazwa');
@@ -83,13 +78,11 @@ class MailAccountCrudController extends AbstractCrudController
             ->setHelp('Użytkownicy z dostępem do podglądu tego konta.');
     }
 
-    public function createNewFormBuilder(EntityDto $entityDto, KeyValueStore $formOptions, AdminContext $context): FormBuilderInterface
-    {
+    public function createNewFormBuilder(EntityDto $entityDto, KeyValueStore $formOptions, AdminContext $context): FormBuilderInterface {
         return $this->addSecretListener(parent::createNewFormBuilder($entityDto, $formOptions, $context));
     }
 
-    public function createEditFormBuilder(EntityDto $entityDto, KeyValueStore $formOptions, AdminContext $context): FormBuilderInterface
-    {
+    public function createEditFormBuilder(EntityDto $entityDto, KeyValueStore $formOptions, AdminContext $context): FormBuilderInterface {
         return $this->addSecretListener(parent::createEditFormBuilder($entityDto, $formOptions, $context));
     }
 
@@ -98,8 +91,7 @@ class MailAccountCrudController extends AbstractCrudController
      * ustawia na encji (typ `encrypted_string` zaszyfruje przy zapisie). Puste pole =
      * hasło bez zmian — nie nadpisujemy istniejącego szyfrogramu.
      */
-    private function addSecretListener(FormBuilderInterface $formBuilder): FormBuilderInterface
-    {
+    private function addSecretListener(FormBuilderInterface $formBuilder): FormBuilderInterface {
         $formBuilder->addEventListener(FormEvents::POST_SUBMIT, function (FormEvent $event): void {
             $form = $event->getForm();
             if (!$form->isValid()) {

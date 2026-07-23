@@ -12,7 +12,6 @@ use Doctrine\Persistence\ManagerRegistry;
  * @extends ServiceEntityRepository<Message>
  */
 class MessageRepository extends ServiceEntityRepository {
-
     /**
      * __construct
      */
@@ -33,8 +32,7 @@ class MessageRepository extends ServiceEntityRepository {
      *
      * @return bool true, gdy wiadomość o tej treści już istnieje na tym koncie
      */
-    public function existsForContent(int $accountId, string $sha256): bool
-    {
+    public function existsForContent(int $accountId, string $sha256): bool {
         return $this->createQueryBuilder('m')
             ->select('1')
             ->where('m.account = :account')
@@ -45,5 +43,5 @@ class MessageRepository extends ServiceEntityRepository {
             ->getQuery()
             ->getOneOrNullResult() !== null;
     }
-    
+
 }

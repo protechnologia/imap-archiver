@@ -16,8 +16,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: '`user`')]
 #[UniqueEntity(fields: ['email'], message: 'Użytkownik z tym adresem e-mail już istnieje.')]
-class User implements UserInterface, PasswordAuthenticatedUserInterface
-{
+class User implements UserInterface, PasswordAuthenticatedUserInterface {
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -49,8 +48,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\ManyToMany(targetEntity: MailAccount::class, mappedBy: 'users')]
     private Collection $mailAccounts;
 
-    public function __construct()
-    {
+    public function __construct() {
         $this->mailAccounts = new ArrayCollection();
     }
 
@@ -59,8 +57,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      *
      * @return int|null Identyfikator, np. 7
      */
-    public function getId(): ?int
-    {
+    public function getId(): ?int {
         return $this->id;
     }
 
@@ -69,8 +66,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      *
      * @return string Adres e-mail, np. "protechnologia@gmail.com"
      */
-    public function getEmail(): string
-    {
+    public function getEmail(): string {
         return $this->email;
     }
 
@@ -81,8 +77,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      *
      * @return $this
      */
-    public function setEmail(string $email): static
-    {
+    public function setEmail(string $email): static {
         $this->email = $email;
 
         return $this;
@@ -93,8 +88,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      *
      * @return string Identyfikator, np. "protechnologia@gmail.com"
      */
-    public function getUserIdentifier(): string
-    {
+    public function getUserIdentifier(): string {
         return $this->email;
     }
 
@@ -103,8 +97,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      *
      * @return list<string> Role, np. ["ROLE_ADMIN", "ROLE_USER"]
      */
-    public function getRoles(): array
-    {
+    public function getRoles(): array {
         $roles = $this->roles;
         // Każdy zalogowany użytkownik ma co najmniej ROLE_USER.
         $roles[] = 'ROLE_USER';
@@ -119,8 +112,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      *
      * @return $this
      */
-    public function setRoles(array $roles): static
-    {
+    public function setRoles(array $roles): static {
         $this->roles = $roles;
 
         return $this;
@@ -131,8 +123,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      *
      * @return string Hash hasła, np. "$2y$13$abcdef…" (bcrypt)
      */
-    public function getPassword(): string
-    {
+    public function getPassword(): string {
         return $this->password;
     }
 
@@ -143,8 +134,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      *
      * @return $this
      */
-    public function setPassword(string $password): static
-    {
+    public function setPassword(string $password): static {
         $this->password = $password;
 
         return $this;
@@ -154,8 +144,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      * Czyści dane wrażliwe przechowywane tymczasowo na obiekcie.
      * Nie trzymamy plaintext hasła, więc nie ma czego czyścić.
      */
-    public function eraseCredentials(): void
-    {
+    public function eraseCredentials(): void {
     }
 
     /**
@@ -163,8 +152,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      *
      * @return Collection<int, MailAccount> Kolekcja, np. [MailAccount("Poczta firmowa")]
      */
-    public function getMailAccounts(): Collection
-    {
+    public function getMailAccounts(): Collection {
         return $this->mailAccounts;
     }
 
@@ -175,8 +163,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      *
      * @return $this
      */
-    public function addMailAccount(MailAccount $mailAccount): static
-    {
+    public function addMailAccount(MailAccount $mailAccount): static {
         if (!$this->mailAccounts->contains($mailAccount)) {
             $this->mailAccounts->add($mailAccount);
             // Synchronizacja strony właścicielskiej.
@@ -193,8 +180,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      *
      * @return $this
      */
-    public function removeMailAccount(MailAccount $mailAccount): static
-    {
+    public function removeMailAccount(MailAccount $mailAccount): static {
         if ($this->mailAccounts->removeElement($mailAccount)) {
             $mailAccount->removeUser($this);
         }
@@ -207,8 +193,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      *
      * @return string Adres e-mail, np. "protechnologia@gmail.com"
      */
-    public function __toString(): string
-    {
+    public function __toString(): string {
         return $this->email ?? '';
     }
 }

@@ -50,8 +50,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     description: 'Etap 3.3: import wiadomości z roku do archiwum (.eml + indeks Message + weryfikacja).',
 )]
 class ArchiveImportCommand extends Command {
-
-    /** 
+    /**
      * __construct
      */
     public function __construct(
@@ -67,8 +66,8 @@ class ArchiveImportCommand extends Command {
     protected function configure(): void {
         $this
             ->addOption('account', null, InputOption::VALUE_REQUIRED, 'ID konta MailAccount')
-            ->addOption('year',    null, InputOption::VALUE_REQUIRED, 'Rok do zaimportowania, np. 2025')
-            ->addOption('dry-run', null, InputOption::VALUE_NONE,     'Przebieg próbny (bez zapisu do archiwum i DB)');
+            ->addOption('year', null, InputOption::VALUE_REQUIRED, 'Rok do zaimportowania, np. 2025')
+            ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Przebieg próbny (bez zapisu do archiwum i DB)');
     }
 
     /**
@@ -161,14 +160,12 @@ class ArchiveImportCommand extends Command {
     private function runImport(SymfonyStyle $io, MailAccount $account, int $year, bool $dryRun): ?ImportSummary {
         try {
             return $this->importManager->import($account, $year, $dryRun);
-        }
-        catch (\InvalidArgumentException $e) {
+        } catch (\InvalidArgumentException $e) {
             // np. konto z authType innym niż Password (ImapConnectionFactory).
             $io->error($e->getMessage());
 
             return null;
-        }
-        catch (\Throwable $e) {
+        } catch (\Throwable $e) {
             $io->error(sprintf('Import nie powiódł się: %s', $e->getMessage()));
 
             return null;
