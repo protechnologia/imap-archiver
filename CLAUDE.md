@@ -82,7 +82,7 @@ Wielu użytkowników z dostępem do podglądu; jeden admin robi import i zarząd
   przez HTMLPurifier.
 - `LiveProp` non-writable są podpisane checksumem z `APP_SECRET` → można im ufać przy
   zawężaniu zapytań. Writable (`query`, `page`) traktujemy jak input użytkownika.
-- Szew na full-text: filtr listy idzie przez `MessageRepository::findForList()`
+- Szew na full-text: filtr listy idzie przez `MessageRepository::searchPage()`
   (na start `LIKE`). Na etapie 7 podmieniamy wnętrze tej metody na Meilisearch bez
   ruszania komponentu i szablonu.
 
@@ -121,9 +121,13 @@ mieszkają w sekcjach **Architektura**, **Model danych**, **Konfiguracja i sekre
         Chrome zalogowanej aplikacji wydzielony do `templates/layout.html.twig` — NIE do
         `base.html.twig`, bo z base korzysta też logowanie (nagłówek z `app.user` padłby na nullu).
         ➜ potwierdzone w przeglądarce: Turbo Drive i kontroler Stimulus działają.
-  - [ ] **4.1** — dostęp do danych: `MessageRepository::findForList()` (szew pod Meilisearch —
-        na start `LIKE`), zawężenie do kont użytkownika, paginacja po `(account_id, sent_at)`.
-        ➜ metoda zwraca poprawną stronę wyników.
+  - [x] **4.1** — dostęp do danych: `MessageRepository::searchPage()` (szew pod Meilisearch —
+        na start `LIKE`) + DTO `MessageListPage` + diagnostyczna komenda `app:mail:list`.
+        Paginacja OFFSETOWA (nie keyset), bo Meilisearch zwraca trafienia + `total` i sortuje
+        po trafności. Repozytorium nie ma trybu „wszystkie konta" — listę podaje warstwa wyżej.
+        ➜ zweryfikowane: strony i przycięcie numeru poza zakresem, filtr bez względu na wielkość
+        liter (też polskie znaki), `%`/`_` z frazy nie działają jak wieloznaczniki, rekord bez
+        `Date` ląduje na końcu listy.
   - [ ] **4.2** — `MessageVoter` (`VIEW`) po M2M `User ↔ MailAccount` + kontroler `/mail`,
         `/mail/{id}`. Decyzja do podjęcia: czy `ROLE_ADMIN` widzi wszystko bez przypisania.
         ➜ obcy mail daje 403, własny 200.
@@ -172,7 +176,10 @@ docker compose exec php php bin/console app:imap:ping --account=<id> [--limit=N]
 # import (od etapu 3)
 docker compose exec php php bin/console app:archive:import --account=<id> --year=<rok>
 
-# konsument kolejki (od etapu 4)
+# diagnostyka listy wiadomości (od etapu 4.1) — to samo zapytanie, co komponent listy
+docker compose exec php php bin/console app:mail:list --account=<id> [--query=fraza] [--page=N] [--per-page=N]
+
+# konsument kolejki (od etapu 5)
 docker compose exec php php bin/console messenger:consume async -vv
 ```
 
@@ -250,6 +257,16 @@ Eksploratora Windows pod `\\wsl.localhost\dev-edor-gw\root\projects\imap-archive
 - **Szyfrowanie IMAP wnioskujemy z portu** w `ImapConnectionFactory`: 143→`tls` (STARTTLS), wszystko
   inne (w tym 993)→`ssl`. Gdyby pojawił się serwer wymagający innej kombinacji — dołożyć jawne pole,
   nie kombinować z portem. (Walidacja cert: flaga `IMAP_VALIDATE_CERT`, opisana w „Konfiguracja i sekrety".)
+- **Postgres przy `ORDER BY … DESC` stawia NULL-e NA POCZĄTKU** (domyślnie `NULLS FIRST`), a
+  `Message.sent_at` jest nullable — bez zabezpieczenia maile z nieparsowalnym `Date` przykryłyby
+  najnowsze na szczycie listy. DQL nie zna `NULLS LAST`, więc `searchPage()` sortuje po sztucznej
+  kolumnie `CASE WHEN m.date IS NULL THEN 1 ELSE 0 END AS HIDDEN` (`HIDDEN` = liczy się w `ORDER BY`,
+  nie trafia do wyniku). Drugi warunek: `id DESC` jako tie-break — bez niego paginacja offsetowa
+  gubi i dubluje rekordy między stronami przy równych datach.
+- **DQL nie ma `ILIKE`, a postgresowy `LIKE` rozróżnia wielkość liter** → filtr listy porównuje
+  przez `LOWER()` po obu stronach (fraza przez `mb_strtolower()`, żeby złapać polskie znaki).
+  Do tego `ESCAPE '!'` i eskejpowanie `%`/`_` we frazie — inaczej samo „%" wpisane w wyszukiwarkę
+  wybiera całe archiwum.
 - Typ Doctrine `encrypted_string` rejestrujemy w `Kernel::boot()`, **nie** w `doctrine.yaml`
   (`dbal.types`). Powód: musimy wstrzyknąć w instancję typu serwis `CredentialEncryptor`, a
   rejestracja przez config nadpisuje (`overrideType`) instancję przy budowie połączenia i
