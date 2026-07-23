@@ -1,0 +1,37 @@
+/*
+ * Nadpisania stylów EasyAdmin. Etap 3.4.
+ *
+ * PROBLEM: na detalu EA stylizuje pola boolean „jak checkbox z formularza" — wartość z lewej,
+ * etykieta z prawej. Robi to TRZEMA regułami naraz (nie samym `flex-direction`), więc poprawienie
+ * jednej zostawia etykietę i wartość z parametrami układu odwróconego (rozjechane wyrównanie).
+ *
+ * ROZWIĄZANIE: przywracamy pola boolean do wyglądu ZWYKŁEGO pola detalu — neutralizujemy każdą
+ * z trzech różnic, wpisując wartości bazowe z `.ea-detail .field-group` (źródło: app.css EA):
+ *   .field-group  { display:flex; }                                  (bez flex-direction = row)
+ *   .field-label  { inline-size:130px; margin:0 15px 0 0; text-align:right; }
+ *   .field-value  { flex:1; min-inline-size:66%; }
+ *
+ * Selektory mają swoistość IDENTYCZNĄ z regułami EA, a ten arkusz ładuje się PO nich
+ * (`Dashboard::configureAssets`), więc wygrywa kolejnością — bez `!important`.
+ *
+ * Badge zostaje nietknięty: `.field-boolean .badge{…}` nie jest ograniczony do `.ea-detail`,
+ * więc wartość wygląda tak samo jak na liście.
+ */
+
+.ea-detail .field-group.field-boolean {
+    flex-direction: row;
+}
+
+.ea-detail .field-group.field-boolean .field-label {
+    flex: 0 1 auto;
+    margin: 0 15px 0 0;
+    min-inline-size: auto;
+    text-align: right;
+}
+
+.ea-detail .field-group.field-boolean .field-value {
+    flex: 1;
+    inline-size: auto;
+    min-inline-size: 66%;
+    text-align: left;
+}

@@ -50,29 +50,17 @@ class MessageCrudController extends AbstractCrudController {
 
     public function configureFields(string $pageName): iterable {
         yield IdField::new('id')->onlyOnIndex();
-
         yield TextField::new('subject', 'Temat');
         yield TextField::new('fromName', 'Nadawca');
         yield TextField::new('fromEmail', 'E-mail nadawcy');
         yield DateTimeField::new('date', 'Data wysłania')
             ->setFormat('yyyy-MM-dd HH:mm')
             ->setHelp('Z nagłówka <code>Date</code> wiadomości (deklarowana data wysłania), nie data przyjęcia przez serwer.');
-
         yield IntegerField::new('size', 'Rozmiar')
             ->setTextAlign('right')
             ->formatValue(static fn (?int $bytes): string => ByteFormatter::humanize($bytes));
-        // Na LIŚCIE (tabela) boolean renderuje się bez problemu — zwykły wyśrodkowany badge.
-        yield BooleanField::new('verified', 'Zweryfikowana')->renderAsSwitch(false)->onlyOnIndex();
+        yield BooleanField::new('verified', 'Zweryfikowana')->renderAsSwitch(false);
         yield BooleanField::new('hasAttachments', 'Załączniki')->renderAsSwitch(false)->onlyOnIndex();
-
-        // Na DETALU renderujemy `verified` jako pole tekstowe z własnym szablonem-badge (nie BooleanField),
-        // bo EA odwraca układ pól `.field-boolean` na detalu (flex-direction: row-reverse — wartość z lewej,
-        // etykieta z prawej), łamiąc spójność z resztą pól. `verifiedBadge` jest wirtualne (nie ma takiej
-        // właściwości) — szablon czyta status z encji; TextField na null-value nie rzuca (early return).
-        yield TextField::new('verifiedBadge', 'Zweryfikowana')
-            ->onlyOnDetail()
-            ->setSortable(false)
-            ->setTemplatePath('admin/message_verified.html.twig');
         yield TextField::new('folder', 'Folder')->onlyOnDetail();
         yield AssociationField::new('account', 'Konto');
 
@@ -81,8 +69,6 @@ class MessageCrudController extends AbstractCrudController {
         yield TextField::new('sha256', 'SHA-256')->onlyOnDetail();
         yield IntegerField::new('imapUid', 'UID IMAP')->onlyOnDetail();
         yield TextField::new('archivePath', 'Ścieżka w archiwum')->onlyOnDetail();
-
-        // Lista załączników (metadane: nazwa, MIME, rozmiar) — własny szablon, bez osobnego CRUD-a.
         yield Field::new('attachments', 'Załączniki')
             ->onlyOnDetail()
             ->setTemplatePath('admin/message_attachments.html.twig');

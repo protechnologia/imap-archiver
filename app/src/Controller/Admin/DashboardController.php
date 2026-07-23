@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller\Admin;
 
 use EasyCorp\Bundle\EasyAdminBundle\Attribute\AdminDashboard;
+use EasyCorp\Bundle\EasyAdminBundle\Config\Assets;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Dashboard;
 use EasyCorp\Bundle\EasyAdminBundle\Config\MenuItem;
 use EasyCorp\Bundle\EasyAdminBundle\Controller\AbstractDashboardController;
@@ -23,6 +24,12 @@ class DashboardController extends AbstractDashboardController {
         return $this->redirect(
             $this->adminUrlGenerator->setController(UserCrudController::class)->generateUrl()
         );
+    }
+
+    public function configureAssets(): Assets {
+        // Arkusz z nadpisaniami stylów EA (m.in. odwrócony układ pól boolean na detalu).
+        // Prawdziwy <link>, nie wstrzykiwany inline <style> — ten okazał się zawodny.
+        return Assets::new()->addCssFile('css/easyadmin-overrides.css');
     }
 
     public function configureDashboard(): Dashboard {
