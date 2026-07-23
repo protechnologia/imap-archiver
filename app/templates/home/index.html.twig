@@ -1,36 +1,21 @@
-{% extends 'base.html.twig' %}
+{% extends 'layout.html.twig' %}
 
 {% block title %}imap-archiver{% endblock %}
 
-{% block body %}
-    <div class="min-h-screen bg-slate-50">
-        <header class="border-b border-slate-200 bg-white">
-            <div class="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-                <div class="flex items-center gap-2">
-                    <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-sm text-white">✉</span>
-                    <span class="font-semibold text-slate-900">imap-archiver</span>
-                </div>
-                <div class="flex items-center gap-4 text-sm">
-                    {% if is_granted('ROLE_ADMIN') %}
-                        <a href="{{ path('admin') }}"
-                           class="rounded-lg px-3 py-1.5 font-medium text-slate-700 ring-1 ring-slate-300 transition hover:bg-slate-100">
-                            Panel admina
-                        </a>
-                    {% endif %}
-                    <span class="text-slate-500">{{ app.user.userIdentifier }}</span>
-                    <a href="{{ path('app_logout') }}"
-                       class="rounded-lg px-3 py-1.5 font-medium text-slate-700 ring-1 ring-slate-300 transition hover:bg-slate-100">
-                        Wyloguj się
-                    </a>
-                </div>
-            </div>
-        </header>
+{% block main %}
+    <main class="mx-auto max-w-5xl px-4 py-10">
+        <h1 class="text-2xl font-semibold text-slate-900">Witaj w imap-archiver</h1>
+        <p class="mt-2 text-slate-600">
+            Panel podglądu i zarządzania archiwum pojawi się w kolejnych etapach.
+        </p>
 
-        <main class="mx-auto max-w-5xl px-4 py-10">
-            <h1 class="text-2xl font-semibold text-slate-900">Witaj w imap-archiver</h1>
-            <p class="mt-2 text-slate-600">
-                Panel podglądu i zarządzania archiwum pojawi się w kolejnych etapach.
+        {# Smoke test etapu 4.0: gdy Stimulus wystartuje, `hello_controller.js` podmieni ten
+           tekst. Blok znika razem z placeholderem, gdy w 4.3 wejdzie realne UI listy. #}
+        {% if app.environment == 'dev' %}
+            <p class="mt-6 rounded-lg bg-white px-4 py-3 text-sm text-slate-500 ring-1 ring-slate-200"
+               data-controller="hello">
+                Stimulus nie wystartował — ten tekst powinien zostać podmieniony.
             </p>
-        </main>
-    </div>
+        {% endif %}
+    </main>
 {% endblock %}

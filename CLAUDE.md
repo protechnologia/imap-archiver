@@ -115,8 +115,31 @@ mieszkają w sekcjach **Architektura**, **Model danych**, **Konfiguracja i sekre
 
 ### Do zrobienia
 
-- [ ] Etap 4 — async (Messenger) + skala + progress.
-- [ ] Etap 5 — podgląd dla użytkowników (Twig/UX trójpanelowy, Voter, sandbox iframe).
+- [ ] **Etap 4 — podgląd dla użytkowników** (Twig/UX trójpanelowy, Voter, sandbox iframe).
+  - [x] **4.0** — stack frontowy: `symfony/ux-turbo`, `symfony/stimulus-bundle`,
+        `symfony/ux-live-component` (`twig-component` już był) przez AssetMapper/importmap.
+        Chrome zalogowanej aplikacji wydzielony do `templates/layout.html.twig` — NIE do
+        `base.html.twig`, bo z base korzysta też logowanie (nagłówek z `app.user` padłby na nullu).
+        ➜ potwierdzone w przeglądarce: Turbo Drive i kontroler Stimulus działają.
+  - [ ] **4.1** — dostęp do danych: `MessageRepository::findForList()` (szew pod Meilisearch —
+        na start `LIKE`), zawężenie do kont użytkownika, paginacja po `(account_id, sent_at)`.
+        ➜ metoda zwraca poprawną stronę wyników.
+  - [ ] **4.2** — `MessageVoter` (`VIEW`) po M2M `User ↔ MailAccount` + kontroler `/mail`,
+        `/mail/{id}`. Decyzja do podjęcia: czy `ROLE_ADMIN` widzi wszystko bez przypisania.
+        ➜ obcy mail daje 403, własny 200.
+  - [ ] **4.3** — trójpanelowy layout na Turbo Frames: konta/foldery → lista → podgląd.
+        Ramka = nawigacja między regionami; bez reaktywności wewnątrz.
+  - [ ] **4.4** — Live Component `MailList` zagnieżdżony WEWNĄTRZ ramki listy: `query`/`page`
+        jako writable `LiveProp` (traktowane jak input), `accountId` non-writable (podpisany).
+  - [ ] **4.5** — render treści maila. UWAGA: `Message.body` to tylko ziarno tekstowe
+        (`MessageFactory::extractBody()` preferuje `text`, HTML jest fallbackiem) — pełny HTML
+        czytamy z `.eml` przez `ArchiveStorage`. HTMLPurifier → `<iframe sandbox>` bez
+        `allow-scripts`; blokada zdalnych obrazów (pixele śledzące).
+  - [ ] **4.6** — załączniki: pobieranie bajtów wyciętych z `.eml` (metadane w DB ich nie mają),
+        `Content-Disposition: attachment`, sanityzacja nazwy pliku, autoryzacja przez Voter.
+  - [ ] **4.7** — sprinkles Stimulus: nawigacja klawiaturą po liście, dopasowanie wysokości iframe.
+- [ ] Etap 5 — async (Messenger) + skala + progress. Przy włączaniu workera przejrzeć pod kątem
+      stanu żądania także serwisy dołożone w etapie 4 (komponent `MailList`, Voter).
 - [ ] Etap 6 — bezpieczne usuwanie (weryfikacja + potwierdzenie + EXPUNGE + audyt).
 - [ ] Etap 7 — full-text search (Meilisearch).
 - [ ] Poza numeracją: **XOAUTH2** (Gmail / M365). `AuthType::Xoauth2` już jest w enumie, ale
@@ -235,7 +258,8 @@ Eksploratora Windows pod `\\wsl.localhost\dev-edor-gw\root\projects\imap-archive
   stanu żądania w usługach; stanowe usługi implementują `ResetInterface`, najlepiej trzymaj
   je bezstanowymi. UWAGA: worker **nie jest jeszcze włączony** — `FRANKENPHP_CONFIG` jest puste,
   dev działa w klasycznym `php_server` (zmiany kodu łapią się per-request, bez restartu).
-  Worker wchodzi w **etapie 4** (`FRANKENPHP_CONFIG=worker ./public/index.php`); dopiero wtedy
+  Worker wchodzi w **etapie 4** — czyli PO etapie 5, patrz kolejność w planie —
+  (`FRANKENPHP_CONFIG=worker ./public/index.php`); dopiero wtedy
   zmiana klasy PHP wymaga restartu kontenera, by worker wczytał nowy kod. Powyższe zasady
   bezstanowości piszemy już teraz, żeby kod był gotowy na worker.
 - `EntityManager` w długo żyjącym workerze: pamiętać o `clear()` i obsłudze zamkniętego EM.
