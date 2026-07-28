@@ -5,7 +5,7 @@ declare(strict_types=1);
 /**
  * Konfiguracja php-cs-fixer — egzekwuje konwencje kodu opisane w CLAUDE.md.
  *
- * Zakres: tylko `src/` (nasz kod). Boilerplate Symfony w `config/`, `public/` i `bin/`
+ * Zakres: `src/` i `tests/` (nasz kod). Boilerplate Symfony w `config/`, `public/` i `bin/`
  * celowo zostawiamy w spokoju — nie formatujemy cudzych plików startowych.
  *
  * Użycie:
@@ -13,7 +13,7 @@ declare(strict_types=1);
  *   composer cs:fix   — poprawia pliki w miejscu
  */
 $finder = (new PhpCsFixer\Finder())
-    ->in(__DIR__ . '/src')
+    ->in([__DIR__ . '/src', __DIR__ . '/tests'])
 ;
 
 return (new PhpCsFixer\Config())

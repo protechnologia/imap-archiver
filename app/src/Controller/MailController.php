@@ -37,7 +37,6 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[Route('/mail')]
 #[IsGranted('ROLE_USER')]
 class MailController extends AbstractController {
-    
     /** Rozmiar strony listy. W 4.4 przejmuje go `LiveProp` komponentu `MailList`. */
     private const PER_PAGE = 50;
 
@@ -102,7 +101,7 @@ class MailController extends AbstractController {
     #[Route('/{id}', name: 'app_mail_show', requirements: ['id' => Requirement::DIGITS], methods: ['GET'])]
     public function show(int $id): Response {
         $message = $this->messageRepository->find($id);
-        if( ! $message instanceof Message ) {
+        if (! $message instanceof Message) {
             throw $this->createNotFoundException(sprintf('Nie ma wiadomości o ID %d.', $id));
         }
 

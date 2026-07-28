@@ -92,6 +92,31 @@ Wielu użytkowników z dostępem do podglądu; jeden admin robi import i zarząd
   (na start `LIKE`). Na etapie 7 podmieniamy wnętrze tej metody na Meilisearch bez
   ruszania komponentu i szablonu.
 
+## Testy — zasady
+
+Zestaw wystartował przy etapie 4.2 (PHPUnit + `symfony/test-pack` + `dama/doctrine-test-bundle`).
+
+- **Kontrolery tylko funkcjonalnie (`WebTestCase`), nigdy jednostkowo.** W akcjach nie ma logiki
+  do izolowania, a wszystko, co w nich ryzykowne, mieszka POZA klasą: `#[IsGranted]`/`#[CurrentUser]`
+  rozwiązuje framework, 403 wychodzi z warstwy security, 404 na `/mail/abc` daje routing
+  (`Requirement::DIGITS`), a błąd w Twigu to 500. Test z zamockowanym `render()` nie zobaczy nic z tego.
+- **Voter: jednostkowo + dwa razy funkcjonalnie.** Jednostkowo pełna matryca reguły na podstawionym
+  repozytorium (grosze czasu), funkcjonalnie tylko potwierdzenie, że Voter jest PODPIĘTY — bo
+  najgroźniejsza awaria to nie zła reguła, lecz reguła, o którą nikt nie pyta.
+- **Repozytoria integracyjnie i KONIECZNIE na Postgresie.** `searchPage()` testuje zachowania silnika
+  (`NULLS FIRST` przy `DESC`, `LIKE` wrażliwy na wielkość liter, `ESCAPE`); na SQLite „dla szybkości"
+  te testy świeciłyby na zielono przy zepsutym kodzie.
+- **Dane testowe budujemy w kodzie** (`tests/Support/Fixtures.php`), bez `DoctrineFixturesBundle` —
+  każdy test potrzebuje 2-3 rekordów ustawionych pod konkretny przypadek, nie wspólnego zestawu.
+  `Fixtures::withId()` wstawia ID refleksją WYŁĄCZNIE dla testów bez bazy (encje nie mają settera `id`).
+- **`dama/doctrine-test-bundle`** owija każdy test w transakcję cofaną na końcu — testy nie widzą
+  swoich danych nawzajem i nie sprzątają ręcznie. Recipe jest w `recipes-contrib`, więc rejestracja
+  bundla (`config/bundles.php`) i rozszerzenia PHPUnit (`phpunit.dist.xml`) jest ROBIONA RĘCZNIE.
+- Baza testowa to `app_test` — robi ją `dbname_suffix: _test` z `when@test` w `doctrine.yaml`,
+  `DATABASE_URL` zostaje ten z `compose.yaml`. Sekrety testowe (`APP_SECRET`, `MAIL_CRYPTO_KEY`)
+  w commitowanym `app/.env.test`; bez `MAIL_CRYPTO_KEY` nie zapiszesz `MailAccount`.
+- Zakres php-cs-fixer obejmuje `tests/` na równi z `src/`.
+
 ## Plan inkrementalny (status)
 
 Każdy etap kończy się czymś działającym. Niebezpieczne usuwanie (etap 6) podłączamy
@@ -184,7 +209,13 @@ docker compose exec php php bin/console app:user:create <email> [hasło] [--admi
 # front: build CSS Tailwind (od etapu 1; v4, bez Node)
 docker compose exec php php bin/console tailwind:build [-m] [--watch]
 
-# styl kodu (php-cs-fixer; zakres src/)
+# testy (od etapu 4.2)
+docker compose exec php composer test:db   # baza app_test + migracje (raz, i po nowej migracji)
+docker compose exec php composer test      # cały zestaw
+docker compose exec php php bin/phpunit tests/Unit          # tylko jednostkowe (bez bazy)
+docker compose exec php php bin/phpunit --filter Voter      # wybrany przypadek
+
+# styl kodu (php-cs-fixer; zakres src/ + tests/)
 docker compose exec php composer cs        # tylko pokazuje, co wymaga poprawy
 docker compose exec php composer cs:fix    # poprawia w miejscu
 
@@ -336,6 +367,12 @@ Eksploratora Windows pod `\\wsl.localhost\dev-edor-gw\root\projects\imap-archive
   wariant zepsuty z bazowym, sprawdzić pokrycie właściwość po właściwości — nie zgadywać po jednej.
   UWAGA: `addHtmlContentToHead('<style>…')` bywa tu zawodny (styl jest w HTML, nie trafia do CSSOM;
   przyczyny nie ustalono). Używać `addCssFile()`.
+- **PHPUnit 13 + `failOnNotice="true"`: `createMock()` bez `expects()` wywala build.** Atrapa, która
+  ma tylko oddać wartość (`willReturn`), musi być `createStub()` — inaczej leci notice „No expectations
+  were configured…" i cały przebieg jest czerwony mimo przechodzących asercji.
+- Testy funkcjonalne wypisują na stderr `[error] Uncaught PHP Exception … Access Denied` przy
+  sprawdzaniu 403/404. To NIE jest błąd testu, tylko logger aplikacji — przypadki oczekujące
+  403/404 zawsze tak hałasują.
 - Stateless CSRF (config/packages/csrf.yaml): formularze renderują token jako literał
   `csrf-token` (JS go podmienia w przeglądarce). Walidacja przechodzi, gdy żądanie jest
   same-origin (nagłówek `Origin`/`Referer` zgodny z hostem) **i** w POST jest pole tokenu

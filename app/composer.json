@@ -70,7 +70,12 @@
             "@auto-scripts"
         ],
         "cs": "php-cs-fixer fix --dry-run --diff",
-        "cs:fix": "php-cs-fixer fix"
+        "cs:fix": "php-cs-fixer fix",
+        "test": "phpunit",
+        "test:db": [
+            "php bin/console doctrine:database:create --env=test --if-not-exists",
+            "php bin/console doctrine:migrations:migrate -n --env=test"
+        ]
     },
     "conflict": {
         "symfony/symfony": "*"
@@ -82,7 +87,11 @@
         }
     },
     "require-dev": {
+        "dama/doctrine-test-bundle": "^8.6",
         "friendsofphp/php-cs-fixer": "^3.95",
+        "phpunit/phpunit": "^13.2",
+        "symfony/browser-kit": "7.4.*",
+        "symfony/css-selector": "7.4.*",
         "symfony/debug-bundle": "7.4.*",
         "symfony/maker-bundle": "^1.67",
         "symfony/web-profiler-bundle": "7.4.*"
