@@ -49,7 +49,6 @@ use Symfony\Component\Console\Style\SymfonyStyle;
     description: 'Diagnostyka etapu 4.1: wypisuje stronę listy wiadomości z searchPage() (sortowanie, paginacja, filtr).',
 )]
 class MailListCommand extends Command {
-
     /**
      * __construct
      */
@@ -64,9 +63,9 @@ class MailListCommand extends Command {
      */
     protected function configure(): void {
         $this
-            ->addOption('account',  null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'ID konta MailAccount (można podać wielokrotnie)')
-            ->addOption('query',    null, InputOption::VALUE_REQUIRED, 'Fraza filtrująca (temat/nadawca/treść)')
-            ->addOption('page',     null, InputOption::VALUE_REQUIRED, 'Numer strony (od 1)', '1')
+            ->addOption('account', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'ID konta MailAccount (można podać wielokrotnie)')
+            ->addOption('query', null, InputOption::VALUE_REQUIRED, 'Fraza filtrująca (temat/nadawca/treść)')
+            ->addOption('page', null, InputOption::VALUE_REQUIRED, 'Numer strony (od 1)', '1')
             ->addOption('per-page', null, InputOption::VALUE_REQUIRED, 'Rozmiar strony', '20');
     }
 
@@ -209,5 +208,5 @@ class MailListCommand extends Command {
 
         return mb_substr($value, 0, $length - 1) . '…';
     }
-    
+
 }

@@ -49,7 +49,13 @@ Wielu użytkowników z dostępem do podglądu; jeden admin robi import i zarząd
   podsumowanie dla admina → świadome potwierdzenie → `\Deleted` + `EXPUNGE`
   (bezpieczniej: najpierw przenieść do `Archived/`). Nigdy automatycznie. Log audytowy usunięć.
 - **Dostęp:** `ROLE_ADMIN` / `ROLE_USER`, mapowanie many-to-many `User ↔ MailAccount`,
-  Voter na poziomie podglądu wiadomości.
+  Voter na poziomie podglądu wiadomości. **`MessageVoter` NIE ma skrótu dla `ROLE_ADMIN`** —
+  na froncie admin jest zwykłym czytelnikiem swojej poczty i dostaje 403 na cudzej. Rola opisuje
+  funkcję administracyjną (konta, import, kasowanie z etapu 6), nie prawo do cudzej korespondencji;
+  panel EA pokazuje wyłącznie metadane indeksu, treści tam nie ma. Admin, który musi przeczytać
+  cudzą skrzynkę, przypisuje sobie konto w panelu — jawny wpis w `mail_account_user` zamiast
+  niewidocznego obejścia w kodzie. Uprawnienie do KASOWANIA (etap 6) to osobna sprawa
+  (`ROLE_ADMIN`), nie rozszerzenie `VIEW`.
 
 ## Model danych
 
@@ -128,9 +134,21 @@ mieszkają w sekcjach **Architektura**, **Model danych**, **Konfiguracja i sekre
         ➜ zweryfikowane: strony i przycięcie numeru poza zakresem, filtr bez względu na wielkość
         liter (też polskie znaki), `%`/`_` z frazy nie działają jak wieloznaczniki, rekord bez
         `Date` ląduje na końcu listy.
-  - [ ] **4.2** — `MessageVoter` (`VIEW`) po M2M `User ↔ MailAccount` + kontroler `/mail`,
-        `/mail/{id}`. Decyzja do podjęcia: czy `ROLE_ADMIN` widzi wszystko bez przypisania.
-        ➜ obcy mail daje 403, własny 200.
+  - [x] **4.2** — `MessageVoter` (`VIEW`) po M2M `User ↔ MailAccount` + `MailController`
+        (`/mail`, `/mail/{id}`) z tymczasowymi widokami (`templates/mail/`). Decyzja: **admin
+        NIE widzi wszystkiego bez przypisania** — uzasadnienie w sekcji „Architektura → Dostęp".
+        Zawężenie w dwóch miejscach: lista dostaje konta użytkownika (`searchPage()` nie ma trybu
+        „wszystkie konta"), detal pyta Votera. Oba czerpią z JEDNEGO źródła —
+        `MailAccountRepository::findForUser()` / `findIdsForUser()` — żeby reguła dostępu nie
+        istniała w dwóch egzemplarzach (w 4.4 sięgnie tam też komponent `MailList`). Zapytanie
+        zamiast leniwej kolekcji `User::getMailAccounts()`, bo tylko tak wymusimy `ORDER BY label`
+        (stała kolejność panelu kont w 4.3). Voter porównuje konta **po ID**, nie
+        `Collection::contains()` — tożsamość obiektów przestaje być pewna po `EntityManager::clear()`
+        w workerze (etap 5). Kontroler nie ma metod prywatnych; użytkownik wjeżdża przez
+        `#[CurrentUser] User $user` (gwarantowany przez `#[IsGranted('ROLE_USER')]` na klasie).
+        ➜ zweryfikowane curl-em: przypisany user i przypisany admin 200 (3 maile na liście),
+        nieprzypisany user i **nieprzypisany admin 403** na cudzym mailu i pusta lista, nieistniejące
+        ID 404, `?page=999` przycięte do 200, bez logowania 302.
   - [ ] **4.3** — trójpanelowy layout na Turbo Frames: konta/foldery → lista → podgląd.
         Ramka = nawigacja między regionami; bez reaktywności wewnątrz.
   - [ ] **4.4** — Live Component `MailList` zagnieżdżony WEWNĄTRZ ramki listy: `query`/`page`

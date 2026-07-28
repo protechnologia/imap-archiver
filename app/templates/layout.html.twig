@@ -16,6 +16,10 @@
                     <span class="font-semibold text-slate-900">imap-archiver</span>
                 </a>
                 <div class="flex items-center gap-4 text-sm">
+                    <a href="{{ path('app_mail_index') }}"
+                       class="rounded-lg px-3 py-1.5 font-medium text-slate-700 ring-1 ring-slate-300 transition hover:bg-slate-100">
+                        Poczta
+                    </a>
                     {% if is_granted('ROLE_ADMIN') %}
                         <a href="{{ path('admin') }}"
                            class="rounded-lg px-3 py-1.5 font-medium text-slate-700 ring-1 ring-slate-300 transition hover:bg-slate-100">

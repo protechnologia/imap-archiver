@@ -1,0 +1,94 @@
+{#
+  Lista wiadomości — WIDOK TYMCZASOWY etapu 4.2.
+
+  Chodzi o potwierdzenie, że zawężenie do kont użytkownika działa end-to-end. W 4.3 ten
+  szablon zastępuje trójpanelowy layout na Turbo Frames (konta/foldery → lista → podgląd),
+  a w 4.4 sama lista przenosi się do Live Componentu `MailList`.
+#}
+{% extends 'layout.html.twig' %}
+
+{% block title %}Poczta — imap-archiver{% endblock %}
+
+{% block main %}
+    <main class="mx-auto max-w-5xl px-4 py-8">
+        <div class="flex items-baseline justify-between">
+            <h1 class="text-2xl font-semibold text-slate-900">Poczta</h1>
+            <p class="text-sm text-slate-500">{{ page.total }} wiadomości</p>
+        </div>
+
+        {% if accounts is empty %}
+            {# Poprawny stan, nie błąd: użytkownik (także admin) bez przypisanego konta. #}
+            <div class="mt-6 rounded-lg bg-white px-4 py-6 text-slate-600 ring-1 ring-slate-200">
+                <p class="font-medium text-slate-900">Nie masz przypisanych kont pocztowych.</p>
+                <p class="mt-1 text-sm">
+                    {% if is_granted('ROLE_ADMIN') %}
+                        Przypisz sobie konto w <a href="{{ path('admin') }}" class="font-medium text-slate-900 underline">panelu admina</a>.
+                    {% else %}
+                        Poproś administratora o dostęp do skrzynki.
+                    {% endif %}
+                </p>
+            </div>
+        {% else %}
+            <p class="mt-2 flex flex-wrap gap-2 text-sm">
+                {% for account in accounts %}
+                    <span class="rounded-full bg-white px-3 py-1 text-slate-600 ring-1 ring-slate-200">{{ account.label }}</span>
+                {% endfor %}
+            </p>
+
+            {% if page.items is empty %}
+                <p class="mt-6 rounded-lg bg-white px-4 py-6 text-slate-600 ring-1 ring-slate-200">
+                    Brak zaimportowanych wiadomości na tych kontach.
+                </p>
+            {% else %}
+                <div class="mt-6 overflow-hidden rounded-lg bg-white ring-1 ring-slate-200">
+                    <table class="w-full text-left text-sm">
+                        <thead class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+                            <tr>
+                                <th class="px-4 py-2 font-medium">Data</th>
+                                <th class="px-4 py-2 font-medium">Od</th>
+                                <th class="px-4 py-2 font-medium">Temat</th>
+                                <th class="px-4 py-2 text-right font-medium">Rozmiar</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            {% for message in page.items %}
+                                <tr class="hover:bg-slate-50">
+                                    <td class="whitespace-nowrap px-4 py-2 text-slate-500">
+                                        {{ message.date ? message.date|date('Y-m-d H:i') : '— (brak Date)' }}
+                                    </td>
+                                    <td class="px-4 py-2 text-slate-600">{{ message.fromName ?: message.fromEmail }}</td>
+                                    <td class="px-4 py-2">
+                                        <a href="{{ path('app_mail_show', {id: message.id}) }}"
+                                           class="font-medium text-slate-900 hover:underline">
+                                            {{ message.subject ?: '(bez tematu)' }}
+                                        </a>
+                                        {% if message.hasAttachments %}<span title="Załączniki">📎</span>{% endif %}
+                                    </td>
+                                    <td class="whitespace-nowrap px-4 py-2 text-right text-slate-500">{{ message.size|bytes }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if page.pages > 1 %}
+                    <nav class="mt-4 flex items-center justify-between text-sm">
+                        {% if page.page > 1 %}
+                            <a href="{{ path('app_mail_index', {page: page.page - 1}) }}"
+                               class="rounded-lg bg-white px-3 py-1.5 font-medium text-slate-700 ring-1 ring-slate-300 hover:bg-slate-100">Poprzednia</a>
+                        {% else %}
+                            <span></span>
+                        {% endif %}
+                        <span class="text-slate-500">Strona {{ page.page }} z {{ page.pages }}</span>
+                        {% if page.page < page.pages %}
+                            <a href="{{ path('app_mail_index', {page: page.page + 1}) }}"
+                               class="rounded-lg bg-white px-3 py-1.5 font-medium text-slate-700 ring-1 ring-slate-300 hover:bg-slate-100">Następna</a>
+                        {% else %}
+                            <span></span>
+                        {% endif %}
+                    </nav>
+                {% endif %}
+            {% endif %}
+        {% endif %}
+    </main>
+{% endblock %}
