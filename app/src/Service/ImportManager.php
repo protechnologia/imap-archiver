@@ -6,7 +6,6 @@ namespace App\Service;
 
 use App\Entity\MailAccount;
 use App\Entity\Message;
-use App\Model\ArchivedFile;
 use App\Model\ImportSummary;
 use App\Model\RawMessage;
 use App\Repository\MessageRepository;
@@ -160,4 +159,5 @@ final class ImportManager {
 
         return true;
     }
+    
 }

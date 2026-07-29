@@ -25,8 +25,13 @@ use Webklex\PHPIMAP\IMAP;
  * READ-ONLY twardo: folder otwierany przez EXAMINE (serwer odrzuca STORE), treść wyłącznie przez
  * `BODY.PEEK[]` (nie ustawia `\Seen`), selekcja bez pobierania body — nigdy nie zmienia flag, nic
  * nie kasuje. Pełne „dlaczego" w README → „Ciekawostki techniczne".
+ *
+ * ŚWIADOMIE BEZ `final`, w odróżnieniu od pozostałych usług: to jedyne wejście/wyjście do sieci
+ * w całym imporcie, a `ImportManagerTest` musi podstawić w jego miejsce atrapę (PHPUnit nie zrobi
+ * atrapy z klasy finalnej). Interfejsu nie wyciągamy — miałby jedną implementację i nic by nie
+ * opisywał; zrobimy to, gdy pojawi się druga. Nie przywracać `final` „dla spójności".
  */
-final class ImapReader {
+class ImapReader {
     public function __construct(
         private readonly ImapConnectionFactory $connectionFactory,
     ) {

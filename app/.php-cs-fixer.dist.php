@@ -32,6 +32,10 @@ return (new PhpCsFixer\Config())
         // Konwencja: `declare(strict_types=1)` w każdym pliku PHP.
         'declare_strict_types' => true,
 
+        // Nieużywane `use` — PSR-12 ich nie rusza (są poprawnie sformatowane), a bez statycznej
+        // analizy nikt inny by ich nie zauważył. Reguła jest bezpieczna (nie „risky").
+        'no_unused_imports' => true,
+
         // Styl domu: natywne funkcje BEZ wiodącego `\` (`count()`, nie `\count()`).
         // Reguła dokleja backslashe, więc trzymamy ją wyłączoną świadomie.
         'native_function_invocation' => false,

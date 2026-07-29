@@ -174,6 +174,50 @@ mieszkają w sekcjach **Architektura**, **Model danych**, **Konfiguracja i sekre
         ➜ zweryfikowane curl-em: przypisany user i przypisany admin 200 (3 maile na liście),
         nieprzypisany user i **nieprzypisany admin 403** na cudzym mailu i pusta lista, nieistniejące
         ID 404, `?page=999` przycięte do 200, bez logowania 302.
+  - [ ] **4.2b — testy warstwy usług, typów i komend.** Infrastruktura i pokrycie samego 4.2
+        (Voter, `MailController`, `searchPage()`, `MailAccountRepository`) są już zrobione —
+        zasady w sekcji **Testy — zasady**. Zostaje reszta `src/`, w tej kolejności:
+    - [x] **`ArchiveStorage`** (jednostkowo, na tymczasowym katalogu): układ
+          `<accountId>/<rok>/<mm>/<sha256>.eml` wg daty, ponowny zapis tych samych bajtów nie
+          nadpisuje pliku, `read()` oddaje bajty 1:1, `assertSafeRelative()` odrzuca `../`.
+          Bez warunków wstępnych — dlatego pierwsze. Test jedzie na PRAWDZIWYM systemie plików
+          w `sys_get_temp_dir()`, nie na atrapie `Filesystem` — przedmiotem są bajty na dysku,
+          a atrapa potwierdzałaby tylko, że wołamy `dumpFile()`.
+          ➜ 12 przypadków: dwucyfrowy miesiąc, osobne pliki dla różnych treści w tym samym
+          miesiącu, niemutowalność (podmieniona zawartość przeżywa ponowny `store()`), bajty
+          binarne i nie-UTF-8 wracają 1:1, cztery warianty path traversal, `accountId <= 0`
+          i odczyt nieistniejącego pliku lecą wyjątkiem.
+    - [x] **`ImportManager`** (integracyjnie: baza + tmp archiwum + podstawiony czytnik):
+          idempotencja po `sha256` (drugi przebieg nic nie duplikuje), `verified` po weryfikacji
+          z dysku, `--dry-run` nie zapisuje ani pliku, ani wiersza, błąd jednego maila nie
+          wywraca przebiegu (ląduje w `errors[]`). NAJWAŻNIEJSZY test w projekcie — tu błąd
+          oznacza utratę poczty. Warunek wstępny załatwiony **zdjęciem `final` z `ImapReadera`**
+          (uzasadnienie w jego dokbloku) — interfejsu NIE wyciągamy, miałby jedną implementację
+          i nic by nie opisywał; zrobimy to, gdy pojawi się druga.
+          ➜ 5 przypadków, w tym rozjazd pliku z indeksem: podłożenie w archiwum pliku o tej samej
+          ścieżce, ale innej treści (zapis content-addressed go nie nadpisze) zostawia
+          `verified=false` i wpis w `errors[]`. Testy zweryfikowane mutacją: wyłączenie
+          `existsForContent()` i porównania checksumów zapala dokładnie te dwa przypadki.
+    - [ ] **`MessageFactory`** (jednostkowo, fixtury `.eml` w `tests/Fixtures/`): dekodowanie
+          `=?UTF-8?B?…?=` przez iconv, zdjęcie cudzysłowów z `personal`, preferencja części
+          `text` nad HTML, brak `Date` → null, metadane załączników. Ubezpieczenie na podbicie
+          wersji webkleksa — to jedyne miejsce zależne od jego parsera.
+    - [ ] **`EncryptedStringType` + `CredentialEncryptor`**: po zapisie `MailAccount` w kolumnie
+          NIE MA plaintextu (sprawdzane surowym SQL-em), odczyt oddaje jawną wartość; round-trip,
+          dwa szyfrowania tego samego tekstu dają różne szyfrogramy, zły klucz i uszkodzony
+          szyfrogram lecą wyjątkiem.
+    - [ ] **Komendy** (`CommandTester`): `app:user:create` — użytkownik powstaje, hasło jest
+          zahaszowane (nigdy plaintext), `--admin` daje `ROLE_ADMIN`, duplikat e-maila nie
+          przechodzi; `app:mail:list` — tylko kontrakt wejścia (brak/nieliczbowe `--account`
+          → `FAILURE`, zero trafień → `SUCCESS`), bo samo zapytanie jest już pokryte.
+    - [ ] **`ByteFormatter`** (jednostkowo): granice 1023/1024, zero, separator dziesiętny.
+    - Świadomie BEZ testów: **`ImapReader`** (sedno to dialog z serwerem — test na sfingowanym
+      protokole sprawdzałby nasze wyobrażenie o webkleksie; realną weryfikacją jest
+      `app:imap:ping` i import na żywym koncie) oraz **`ImapConnectionFactory`** (`connect()`
+      buduje konfigurację i od razu się łączy; wnioskowanie szyfrowania z portu da się
+      przetestować dopiero po rozbiciu na `configFor()` + `connect()` — robimy to przy XOAUTH2,
+      żeby refactor miał dwa powody, nie jeden). Modele (`ArchivedFile`, `RawMessage`,
+      `ImportSummary`, `MessageListPage`) to `readonly` nośniki — nie ma czego testować.
   - [ ] **4.3** — trójpanelowy layout na Turbo Frames: konta/foldery → lista → podgląd.
         Ramka = nawigacja między regionami; bez reaktywności wewnątrz.
   - [ ] **4.4** — Live Component `MailList` zagnieżdżony WEWNĄTRZ ramki listy: `query`/`page`
