@@ -26,10 +26,10 @@ use Webklex\PHPIMAP\IMAP;
  * `BODY.PEEK[]` (nie ustawia `\Seen`), selekcja bez pobierania body — nigdy nie zmienia flag, nic
  * nie kasuje. Pełne „dlaczego" w README → „Ciekawostki techniczne".
  *
- * ŚWIADOMIE BEZ `final`, w odróżnieniu od pozostałych usług: to jedyne wejście/wyjście do sieci
- * w całym imporcie, a `ImportManagerTest` musi podstawić w jego miejsce atrapę (PHPUnit nie zrobi
- * atrapy z klasy finalnej). Interfejsu nie wyciągamy — miałby jedną implementację i nic by nie
- * opisywał; zrobimy to, gdy pojawi się druga. Nie przywracać `final` „dla spójności".
+ * To jedyne wejście/wyjście do sieci w całym imporcie, więc `ImportManagerTest` podstawia w jego
+ * miejsce atrapę — klasa musi zostać dziedziczalna (PHPUnit nie zrobi atrapy z klasy finalnej).
+ * Interfejsu nie wyciągamy: miałby jedną implementację i nic by nie opisywał; zrobimy to, gdy
+ * pojawi się druga.
  */
 class ImapReader {
     public function __construct(

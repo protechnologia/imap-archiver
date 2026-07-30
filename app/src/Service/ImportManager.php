@@ -23,7 +23,7 @@ use Doctrine\ORM\EntityManagerInterface;
  * EM przy dużej skali to etap 4; tu (mały zakres) flushujemy per mail dla prostoty i idempotencji
  * WEWNĄTRZ przebiegu (kolejny duplikat w tym samym roku widzi już zapisany wpis).
  */
-final class ImportManager {
+class ImportManager {
     public function __construct(
         private readonly ImapReader $reader,
         private readonly ArchiveStorage $archiveStorage,

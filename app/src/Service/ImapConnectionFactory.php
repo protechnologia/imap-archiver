@@ -19,7 +19,7 @@ use Webklex\PHPIMAP\ClientManager;
  * Bezstanowy — gotowy na worker mode (etap 4): nie trzyma stanu między wywołaniami.
  * Etap 2: obsługujemy wyłącznie `AuthType::Password`. XOAUTH2 — później (osobny podetap).
  */
-final class ImapConnectionFactory {
+class ImapConnectionFactory {
     public function __construct(
         #[Autowire('%env(bool:IMAP_VALIDATE_CERT)%')]
         private readonly bool $validateCert,

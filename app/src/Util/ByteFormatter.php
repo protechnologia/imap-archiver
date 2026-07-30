@@ -14,7 +14,7 @@ namespace App\Util;
  * Czysty helper bez stanu i zależności — stąd metoda statyczna i brak rejestracji jako usługa
  * (patrz `exclude` w `config/services.yaml`).
  */
-final class ByteFormatter {
+class ByteFormatter {
     /** Czysty helper — nie instancjonujemy. */
     private function __construct() {
     }

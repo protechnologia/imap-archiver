@@ -11,7 +11,7 @@ namespace App\Security;
  * Nonce (24 B) losowany per zapis i doklejany przed szyfrogramem, całość base64.
  * Bezstanowy — bezpieczny w worker mode (FrankenPHP).
  */
-final class CredentialEncryptor {
+class CredentialEncryptor {
     /** Surowy klucz binarny (32 B). */
     private string $key;
 
@@ -25,7 +25,19 @@ final class CredentialEncryptor {
             );
         }
 
-        $binary = @sodium_hex2bin($key);
+        // `sodium_hex2bin()` na wartości niebędącej hexem RZUCA SodiumException (nie ostrzega,
+        // więc `@` by go nie stłumiło). Przechwytujemy, żeby konfiguracyjna literówka dawała
+        // komunikat mówiący, KTÓRA zmienna jest zła — a nie „Argument #1 must be a valid
+        // hexadecimal string" bez kontekstu.
+        try {
+            $binary = sodium_hex2bin($key);
+        } catch (\SodiumException $e) {
+            throw new \InvalidArgumentException(
+                'MAIL_CRYPTO_KEY musi być zapisem hex (64 znaki 0-9a-f).',
+                previous: $e
+            );
+        }
+
         if (strlen($binary) !== SODIUM_CRYPTO_SECRETBOX_KEYBYTES) {
             throw new \InvalidArgumentException(sprintf(
                 'MAIL_CRYPTO_KEY musi być %d-bajtowym kluczem (64 znaki hex).',

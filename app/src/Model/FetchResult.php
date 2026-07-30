@@ -19,7 +19,7 @@ namespace App\Model;
  *   FetchResult::ok(...):      { uid: 3, message: RawMessage{…}, error: null }
  *   FetchResult::failure(7,…): { uid: 7, message: null, error: "serwer nie zwrócił źródła (BODY[])" }
  */
-final readonly class FetchResult {
+readonly class FetchResult {
     private function __construct(
         /** UID wiadomości w folderze IMAP, np. 3. Obecny zawsze — także przy porażce. */
         public int $uid,

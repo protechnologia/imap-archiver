@@ -19,7 +19,7 @@ use Doctrine\DBAL\Types\Type;
  *
  * DBAL 4: brak getName()/requiresSQLCommentHint() — nazwa to wyłącznie klucz rejestracji.
  */
-final class EncryptedStringType extends Type {
+class EncryptedStringType extends Type {
     public const NAME = 'encrypted_string';
 
     private ?CredentialEncryptor $encryptor = null;

@@ -24,7 +24,7 @@ namespace App\Model;
  *       dryRun:     false,
  *   }
  */
-final readonly class ImportSummary {
+readonly class ImportSummary {
     /**
      * @param list<string> $errors Komunikaty błędów per wiadomość (import leci dalej mimo błędu jednej)
      */

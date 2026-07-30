@@ -24,7 +24,7 @@ use Webklex\PHPIMAP\Message as ImapMessage;
  * Czysty mapper: buduje graf encji i go zwraca, nie dotyka `EntityManager` ani IMAP — persist/flush
  * i weryfikacja należą do koordynatora (`ImportManager`). Bezstanowy — gotowy na worker mode (etap 4).
  */
-final class MessageFactory {
+class MessageFactory {
     /**
      * Konfiguracja webklex dla parsowania ze stringa: dekoder nagłówków przez `iconv`.
      *

@@ -19,7 +19,7 @@ namespace App\Model;
  *       internalDate: new \DateTimeImmutable('2026-06-16 07:58:58 +0200'),
  *   }
  */
-final readonly class RawMessage {
+readonly class RawMessage {
     public function __construct(
         /** UID wiadomości w folderze IMAP, np. 3. */
         public int $uid,

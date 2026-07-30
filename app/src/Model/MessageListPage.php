@@ -17,7 +17,7 @@ use App\Entity\Message;
  * `page` to strona FAKTYCZNIE zwrócona: repozytorium przycina żądany numer do zakresu
  * (patrz `searchPage()`), więc może różnić się od tego, o który prosił użytkownik.
  */
-final readonly class MessageListPage {
+readonly class MessageListPage {
     /**
      * @param list<Message> $items Wiadomości na tej stronie, posortowane malejąco po dacie
      */

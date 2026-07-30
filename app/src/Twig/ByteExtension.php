@@ -16,7 +16,7 @@ use Twig\TwigFilter;
  *
  * Użycie: `{{ attachment.size|bytes }}` → "11,8 KB".
  */
-final class ByteExtension extends AbstractExtension {
+class ByteExtension extends AbstractExtension {
     /**
      * @return list<TwigFilter> Filtry wystawiane szablonom
      */

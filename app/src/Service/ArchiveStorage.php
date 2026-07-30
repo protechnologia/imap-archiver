@@ -21,7 +21,7 @@ use Symfony\Component\Filesystem\Filesystem;
  * Bezstanowy — gotowy na worker mode (etap 4). Nie zna ścieżki hosta; operuje tylko na
  * `ARCHIVE_DIR` (rozdział `ARCHIVE_DIR` vs `ARCHIVE_HOST_DIR` — patrz README/CLAUDE).
  */
-final class ArchiveStorage {
+class ArchiveStorage {
     /**
      * @param string     $archiveDir Katalog archiwum widziany w kontenerze, np. "/archive"
      * @param Filesystem $filesystem Komponent Symfony do operacji na plikach (atomowy zapis)

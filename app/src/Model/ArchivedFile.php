@@ -17,7 +17,7 @@ namespace App\Model;
  *       size:         49189,
  *   }
  */
-final readonly class ArchivedFile {
+readonly class ArchivedFile {
     public function __construct(
         /** Ścieżka względna w archiwum, np. "67/2026/06/6f041317c753….eml". */
         public string $relativePath,
