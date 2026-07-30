@@ -28,6 +28,7 @@ use Symfony\Component\HttpFoundation\Response;
  * uwierzytelnianie (formularz i stateless CSRF mają własne zachowanie, opisane w CLAUDE.md).
  */
 class MailControllerTest extends WebTestCase {
+    
     private KernelBrowser $client;
     private EntityManagerInterface $em;
 
@@ -163,6 +164,68 @@ class MailControllerTest extends WebTestCase {
 
         $this->assertResponseIsSuccessful();
         $this->assertSelectorTextContains('body', 'Jedyna');
+    }
+
+    /**
+     * `?account=` zawęża listę do jednego konta (etap 4.3a) — panel kont po lewej niczego innego
+     * nie robi, tylko podstawia ten parametr.
+     */
+    public function testWybraneKontoZawezaListe(): void {
+        $pierwsze = $this->givenAccount('Konto A');
+        $drugie   = $this->givenAccount('Konto B');
+        $user     = $this->givenUser('user@example.com', $pierwsze);
+        $drugie->addUser($user);
+        $this->em->flush();
+        $this->givenMessage($pierwsze, 'Mail z konta A');
+        $this->givenMessage($drugie, 'Mail z konta B');
+
+        $this->client->loginUser($user);
+        $this->client->request('GET', '/mail?account=' . $pierwsze->getId());
+
+        $this->assertResponseIsSuccessful();
+        $this->assertSelectorTextContains('body', 'Mail z konta A');
+        $this->assertSelectorTextNotContains('body', 'Mail z konta B');
+    }
+
+    /**
+     * `?account=` jest inputem użytkownika, więc cudze ID musi zostać ODRZUCONE, a nie przepuszczone
+     * do zapytania. Widok wraca wtedy do „wszystkie moje konta" — nigdy do cudzej poczty.
+     */
+    public function testObceKontoWQueryStringNieDajeCudzejPoczty(): void {
+        $moje = $this->givenAccount('Moje konto');
+        $obce = $this->givenAccount('Obce konto');
+        $user = $this->givenUser('user@example.com', $moje);
+        $this->givenMessage($moje, 'Moja wiadomość');
+        $this->givenMessage($obce, 'Cudza wiadomość');
+
+        $this->client->loginUser($user);
+        $this->client->request('GET', '/mail?account=' . $obce->getId());
+
+        $this->assertResponseIsSuccessful();
+        $this->assertSelectorTextNotContains('body', 'Cudza wiadomość');
+        $this->assertSelectorTextContains('body', 'Moja wiadomość', 'Obce konto ma być zignorowane, a nie wyczyścić listę');
+    }
+
+    /**
+     * Wejście prosto na `/mail/{id}` (zakładka, link, historia) pokazuje wiadomość W KONTEKŚCIE
+     * jej konta: lista obok zawiera sąsiednie maile z tej samej skrzynki, a nie wszystko naraz.
+     */
+    public function testDeepLinkPokazujeWiadomoscWKontekscieJejKonta(): void {
+        $pierwsze = $this->givenAccount('Konto A');
+        $drugie   = $this->givenAccount('Konto B');
+        $user     = $this->givenUser('user@example.com', $pierwsze);
+        $drugie->addUser($user);
+        $this->em->flush();
+        $message = $this->givenMessage($pierwsze, 'Otwierana wiadomość');
+        $this->givenMessage($pierwsze, 'Sąsiad z tego samego konta');
+        $this->givenMessage($drugie, 'Mail z innego konta');
+
+        $this->client->loginUser($user);
+        $this->client->request('GET', '/mail/' . $message->getId());
+
+        $this->assertResponseIsSuccessful();
+        $this->assertSelectorTextContains('body', 'Sąsiad z tego samego konta');
+        $this->assertSelectorTextNotContains('body', 'Mail z innego konta');
     }
 
     /**

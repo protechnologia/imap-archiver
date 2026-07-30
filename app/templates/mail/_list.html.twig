@@ -1,0 +1,57 @@
+{#
+  Środkowy region: lista wiadomości (etap 4.3a).
+
+  Zawężenie do kont zrobiło już repozytorium — tu tylko renderujemy `page.items`. W 4.4 wnętrze
+  tego partiala przejmie Live Component `MailList` (szukanie i paginacja jako `LiveProp`),
+  dlatego linki paginacji celowo NIOSĄ aktualne `account`: stan widoku ma mieścić się w adresie.
+#}
+{% set navParams = selectedAccount ? {account: selectedAccount.id} : {} %}
+
+<div class="rounded-lg bg-white ring-1 ring-slate-200">
+    <header class="flex items-baseline justify-between border-b border-slate-200 px-3 py-2">
+        <h2 class="font-medium text-slate-900">{{ selectedAccount ? selectedAccount.label : 'Wszystkie konta' }}</h2>
+        <span class="text-xs text-slate-500">{{ page.total }} wiadomości</span>
+    </header>
+
+    {% if page.items is empty %}
+        <p class="px-3 py-6 text-sm text-slate-600">Brak zaimportowanych wiadomości.</p>
+    {% else %}
+        <ul class="divide-y divide-slate-100">
+            {% for item in page.items %}
+                {# Aktywny wiersz poznajemy po oglądanej wiadomości — po włączeniu ramek w 4.3c
+                   lista zostaje na miejscu, a zmienia się tylko prawy panel, więc podświetlenie
+                   musi wynikać z danych, nie z JS-a. #}
+                <li class="{{ message and message.id == item.id ? 'bg-slate-100' : 'hover:bg-slate-50' }}">
+                    <a href="{{ path('app_mail_show', navParams|merge({id: item.id})) }}" class="block px-3 py-2">
+                        <span class="flex items-baseline justify-between gap-2">
+                            <span class="truncate text-sm font-medium text-slate-900">
+                                {{ item.subject|default('(bez tematu)') ?: '(bez tematu)' }}
+                            </span>
+                            <span class="shrink-0 text-xs text-slate-500">
+                                {{ item.date ? item.date|date('Y-m-d H:i') : '— brak daty' }}
+                            </span>
+                        </span>
+                        <span class="mt-0.5 flex items-baseline justify-between gap-2 text-xs text-slate-500">
+                            <span class="truncate">{{ item.fromName ?: item.fromEmail }}</span>
+                            <span class="shrink-0">{{ item.size|bytes }}{% if item.hasAttachments %} 📎{% endif %}</span>
+                        </span>
+                    </a>
+                </li>
+            {% endfor %}
+        </ul>
+
+        {% if page.pages > 1 %}
+            <nav class="flex items-center justify-between border-t border-slate-200 px-3 py-2 text-xs">
+                {% if page.page > 1 %}
+                    <a href="{{ path('app_mail_index', navParams|merge({page: page.page - 1})) }}"
+                       class="rounded px-2 py-1 font-medium text-slate-700 ring-1 ring-slate-300 hover:bg-slate-100">Poprzednia</a>
+                {% else %}<span></span>{% endif %}
+                <span class="text-slate-500">{{ page.page }} z {{ page.pages }}</span>
+                {% if page.page < page.pages %}
+                    <a href="{{ path('app_mail_index', navParams|merge({page: page.page + 1})) }}"
+                       class="rounded px-2 py-1 font-medium text-slate-700 ring-1 ring-slate-300 hover:bg-slate-100">Następna</a>
+                {% else %}<span></span>{% endif %}
+            </nav>
+        {% endif %}
+    {% endif %}
+</div>

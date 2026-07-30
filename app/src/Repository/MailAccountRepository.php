@@ -63,6 +63,32 @@ class MailAccountRepository extends ServiceEntityRepository {
     }
 
     /**
+     * Konto o podanym ID, ale TYLKO jeśli użytkownik ma do niego dostęp (etap 4.3a).
+     *
+     * Wybór konta na liście przychodzi query stringiem (`?account=67`), czyli jest inputem
+     * użytkownika. Ta metoda jest jedynym miejscem, przez które taki input wolno przepuścić:
+     * cudze albo nieistniejące ID daje null, więc warstwa wyżej nie ma jak podać obcego konta
+     * do `searchPage()`. Zero (brak parametru w żądaniu) trafia tu naturalnie i też daje null.
+     *
+     * @param User $user      Zalogowany użytkownik
+     * @param int  $accountId ID żądanego konta z query stringa, np. 67 (0 = brak parametru)
+     *
+     * @return MailAccount|null Konto albo null, gdy nie istnieje lub użytkownik go nie ma
+     */
+    public function findOneForUser(User $user, int $accountId): ?MailAccount {
+        if ($accountId <= 0) {
+            return null;
+        }
+
+        return $this->accessibleQueryBuilder($user)
+            ->select('a')
+            ->andWhere('a.id = :id')
+            ->setParameter('id', $accountId)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
      * Wspólne WHERE obu metod: przypisanie M2M `User ↔ MailAccount` plus stała kolejność.
      *
      * Wydzielone, żeby „kto ma dostęp" było zapisane raz — gdyby warunek się rozszedł między

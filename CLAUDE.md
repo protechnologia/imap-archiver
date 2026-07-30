@@ -194,7 +194,40 @@ mieszkają w sekcjach **Architektura**, **Model danych**, **Konfiguracja i sekre
         żeby refactor miał dwa powody, nie jeden). Modele (`ArchivedFile`, `RawMessage`,
         `ImportSummary`, `MessageListPage`) to `readonly` nośniki — nie ma czego testować.
   - [ ] **4.3** — trójpanelowy layout na Turbo Frames: konta/foldery → lista → podgląd.
-        Ramka = nawigacja między regionami; bez reaktywności wewnątrz.
+        Ramka = nawigacja między regionami; bez reaktywności wewnątrz (ta wchodzi w 4.4).
+        Adresowanie: **wiadomość zostaje w ścieżce** (`/mail/{id}` — tożsamość zasobu), a wybór
+        konta idzie **query stringiem** (`?account=67` — stan widoku), spójnie z `page` i z tym,
+        jak w 4.4 `LiveProp(url: true)` zapisuje stan komponentu.
+    - [x] **4.3a — trasy i akcje, jeszcze bez ramek.** DWIE trasy obsługiwane przez JEDNĄ akcję
+          (`MailController::mailbox()`): `/mail` to trzy panele bez wybranej wiadomości,
+          `/mail/{id}` te same trzy panele z wypełnionym podglądem. Osobnej trasy na sam środkowy
+          panel (`/mail/list`) świadomie NIE ma — Turbo wyciąga `<turbo-frame>` z odpowiedzi
+          pełnej strony, więc dodatkowy adres oznaczałby drugi szablon do utrzymania i widok,
+          który bez JS pokazuje goły fragment. Regiony są wydzielone do partiali
+          (`_accounts`/`_list`/`_message`), więc w 4.3c wystarczy je opakować.
+          **Bezpieczeństwo:** `?account=` to input użytkownika i przechodzi przez
+          `MailAccountRepository::findOneForUser()` — cudze albo nieistniejące ID daje `null`
+          (widok wraca do „wszystkie konta"), nigdy cudzą pocztę.
+          ➜ zweryfikowane curl-em: `/mail` i `/mail?account=67` (nagłówek listy i linki niosą
+          wybrane konto), `?account=999` cicho ignorowane, `/mail/2` renderuje komplet paneli
+          z tematem w `h1`, 110 testów z 4.2b dalej zielonych.
+    - [ ] **4.3b — layout i stany puste.** Siatka Tailwind na pełną wysokość, **osobne przewijanie
+          każdej kolumny** (nie jedno dla całej strony), panel kont z `findForUser()` (stała
+          kolejność po `label`), zaznaczenie aktywnego konta, sensowne pustki: brak kont, konto bez
+          wiadomości, brak wybranej wiadomości. Foldery na razie płasko — `Message.folder` jest
+          stringiem z importu, drzewo folderów to nie ten etap.
+    - [ ] **4.3c — Turbo Frames.** Regiony w `<turbo-frame>`, linki listy celują w ramkę podglądu
+          (`data-turbo-frame`), a nawigacja wychodząca poza moduł (panel admina, wylogowanie) ma
+          `target="_top"` — inaczej cała aplikacja wyląduje w środkowej kolumnie. Punkt kontrolny:
+          klik w wiadomość przeładowuje TYLKO prawy panel.
+    - [ ] **4.3d — adres URL, wstecz i deep link.** `data-turbo-action="advance"` przy przejściu
+          lista → podgląd, żeby adres się zmieniał, a `wstecz`/`odśwież` działały. Warunek konieczny:
+          wejście prosto na `/mail/{id}` musi wyrenderować PEŁNE trzy panele — czyli ta sama akcja
+          obsługuje dwa tryby (samodzielny i w ramce), rozpoznawane po nagłówku `Turbo-Frame`.
+    - [ ] **4.3e — testy funkcjonalne pod nowy layout.** Istniejące asercje z 4.2 wiszą na treści
+          `body` i po przebudowie szablonów wymagają dostrojenia. Dochodzą dwa nowe przypadki:
+          żądanie ramki oddaje sam fragment (nie całą stronę), a deep link do wiadomości renderuje
+          komplet paneli. Autoryzacja (403/404) ma zachowywać się identycznie w obu trybach.
   - [ ] **4.4** — Live Component `MailList` zagnieżdżony WEWNĄTRZ ramki listy: `query`/`page`
         jako writable `LiveProp` (traktowane jak input), `accountId` non-writable (podpisany).
   - [ ] **4.5** — render treści maila. UWAGA: `Message.body` to tylko ziarno tekstowe
@@ -206,6 +239,25 @@ mieszkają w sekcjach **Architektura**, **Model danych**, **Konfiguracja i sekre
   - [ ] **4.7** — sprinkles Stimulus: nawigacja klawiaturą po liście, dopasowanie wysokości iframe.
 - [ ] Etap 5 — async (Messenger) + skala + progress. Przy włączaniu workera przejrzeć pod kątem
       stanu żądania także serwisy dołożone w etapie 4 (komponent `MailList`, Voter).
+- [ ] **Etap 5.5 — `app:doctor`: kontrola stanu instalacji po deployu.** Jedna komenda z kodem
+      wyjścia ≠ 0 przy problemie, do odpalania po każdym deployu i z crona. Poprzedza etap 6
+      celowo: bezpieczne kasowanie opiera się dokładnie na tych gwarancjach, które ona sprawdza.
+      **Powód, dla którego to nie jest fanaberia:** archiwum to bind mount `${ARCHIVE_HOST_DIR}:/archive`.
+      Gdy montowanie się nie uda albo ktoś zmieni ścieżkę na hoście, kontener utworzy `/archive`
+      jako PUSTY katalog w swojej warstwie i wszystko będzie wyglądało poprawnie — import zapisze
+      pliki, oznaczy `verified`, panel pokaże zielone ptaszki, a źródło prawdy poleci na
+      efemeryczną warstwę i zniknie przy `down`. Baza przeżyje, indeks będzie pełen, archiwum
+      puste — czyli dokładnie odwrotnie niż zakłada architektura.
+  - [ ] **Plik-znacznik archiwum** (`.archive-id` z identyfikatorem instalacji) tworzony przy
+        inicjalizacji na hoście. Brak znacznika = „to nie jest mój wolumen" → `ImportManager`
+        odmawia pracy, zamiast pisać w próżnię. To jest sedno całego etapu; reszta to diagnostyka.
+  - [ ] Sprawdzenia komendy: baza odpowiada, **migracje aktualne** (`doctrine:migrations:up-to-date`)
+        i schemat bez dryfu (`doctrine:schema:validate`); `ARCHIVE_DIR` istnieje, jest zapisywalny
+        i ma znacznik; liczba wierszy `Message` vs liczba plików `.eml` (rozjazd w KAŻDĄ stronę to
+        alarm); próbkowa weryfikacja `sha256` N losowych wiadomości (`--all` dla pełnej);
+        `MAIL_CRYPTO_KEY` odszyfrowuje istniejące poświadczenia (wykrywa rotację klucza bez re-encryptu).
+  - [ ] Do rozważenia przy okazji: endpoint `/health` + `HEALTHCHECK` w `compose.yaml` (ta sama
+        logika, tylko ciągła i dla monitoringu, bez części kosztownej — bez skanu archiwum).
 - [ ] Etap 6 — bezpieczne usuwanie (weryfikacja + potwierdzenie + EXPUNGE + audyt).
 - [ ] Etap 7 — full-text search (Meilisearch).
 - [ ] Poza numeracją: **XOAUTH2** (Gmail / M365). `AuthType::Xoauth2` już jest w enumie, ale

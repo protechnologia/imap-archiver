@@ -11,15 +11,11 @@
     <div class="min-h-screen bg-slate-50">
         <header class="border-b border-slate-200 bg-white">
             <div class="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-                <a href="{{ path('app_home') }}" class="flex items-center gap-2">
+                <a href="{{ path('app_mail_index') }}" class="flex items-center gap-2">
                     <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-sm text-white">✉</span>
                     <span class="font-semibold text-slate-900">imap-archiver</span>
                 </a>
                 <div class="flex items-center gap-4 text-sm">
-                    <a href="{{ path('app_mail_index') }}"
-                       class="rounded-lg px-3 py-1.5 font-medium text-slate-700 ring-1 ring-slate-300 transition hover:bg-slate-100">
-                        Poczta
-                    </a>
                     {% if is_granted('ROLE_ADMIN') %}
                         <a href="{{ path('admin') }}"
                            class="rounded-lg px-3 py-1.5 font-medium text-slate-700 ring-1 ring-slate-300 transition hover:bg-slate-100">
