@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Support;
+namespace App\Tests\Fixtures;
 
 use App\Entity\MailAccount;
 use App\Entity\Message;
@@ -11,6 +11,10 @@ use App\Entity\User;
 /**
  * Budowanie encji na potrzeby testów.
  *
+ * Mieszka w `tests/Fixtures/` obok katalogu `eml/` z surowymi plikami `.eml`: jedno miejsce na
+ * wszystko, z czego testy biorą dane — niezależnie od tego, czy powstają w kodzie (encje), czy
+ * leżą jako bajty na dysku (fixtury `.eml` dla `MessageFactoryTest`).
+ *
  * Świadomie zamiast `DoctrineFixturesBundle`: testy potrzebują 2-3 rekordów ustawionych pod
  * konkretny przypadek (np. wiadomość BEZ daty), a nie wspólnego zestawu danych — plik fikstur
  * i tak trzeba by czytać przy każdej asercji, żeby wiedzieć, co jest w bazie.
@@ -18,7 +22,7 @@ use App\Entity\User;
  * Metody wypełniają tylko pola wymagane przez schemat; to, co jest istotne dla danego testu,
  * podaje się argumentem. Encje NIE są zapisywane — `persist()`/`flush()` robi test.
  */
-final class Fixtures {
+final class EntityFactory {
     /** Licznik do generowania unikalnych `sha256` (UNIQUE(account_id, sha256)). */
     private static int $sequence = 0;
 

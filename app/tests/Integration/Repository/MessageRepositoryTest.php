@@ -8,7 +8,7 @@ use App\Entity\MailAccount;
 use App\Entity\Message;
 use App\Model\MessageListPage;
 use App\Repository\MessageRepository;
-use App\Tests\Support\Fixtures;
+use App\Tests\Fixtures\EntityFactory;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -167,7 +167,7 @@ class MessageRepositoryTest extends KernelTestCase {
      * @return MailAccount Konto z nadanym ID
      */
     private function givenAccount(string $label = 'Konto testowe'): MailAccount {
-        $account = Fixtures::account($label);
+        $account = EntityFactory::account($label);
         $this->em->persist($account);
         $this->em->flush();
 
@@ -184,7 +184,7 @@ class MessageRepositoryTest extends KernelTestCase {
      * @return Message Wiadomość z nadanym ID
      */
     private function givenMessage(MailAccount $account, string $subject, ?\DateTimeImmutable $date = null): Message {
-        $message = Fixtures::message($account, $subject, $date);
+        $message = EntityFactory::message($account, $subject, $date);
         $this->em->persist($message);
         $this->em->flush();
 

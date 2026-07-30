@@ -1,0 +1,7 @@
+From: anna@example.com
+Subject: Tylko HTML
+Date: Wed, 01 Jul 2026 12:00:00 +0000
+MIME-Version: 1.0
+Content-Type: text/html; charset=UTF-8
+
+<html><body><p>Wyłącznie HTML.</p></body></html>

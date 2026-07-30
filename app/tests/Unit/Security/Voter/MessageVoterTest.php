@@ -9,7 +9,7 @@ use App\Entity\Message;
 use App\Entity\User;
 use App\Repository\MailAccountRepository;
 use App\Security\Voter\MessageVoter;
-use App\Tests\Support\Fixtures;
+use App\Tests\Fixtures\EntityFactory;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
@@ -30,7 +30,7 @@ class MessageVoterTest extends TestCase {
     private const OTHER_ACCOUNT_ID = 68;
 
     public function testPrzypisanyUzytkownikWidziWiadomosc(): void {
-        $user = Fixtures::user('user@example.com');
+        $user = EntityFactory::user('user@example.com');
 
         $this->assertSame(
             VoterInterface::ACCESS_GRANTED,
@@ -39,7 +39,7 @@ class MessageVoterTest extends TestCase {
     }
 
     public function testNieprzypisanyUzytkownikNieWidziWiadomosci(): void {
-        $user = Fixtures::user('outsider@example.com');
+        $user = EntityFactory::user('outsider@example.com');
 
         $this->assertSame(
             VoterInterface::ACCESS_DENIED,
@@ -52,7 +52,7 @@ class MessageVoterTest extends TestCase {
      * Gdyby ktoś dołożył w Voterze skrót `if ($user->isAdmin()) return true`, ten test padnie.
      */
     public function testNieprzypisanyAdminNieWidziCudzejWiadomosci(): void {
-        $admin = Fixtures::user('admin@example.com', ['ROLE_ADMIN']);
+        $admin = EntityFactory::user('admin@example.com', ['ROLE_ADMIN']);
 
         $this->assertSame(
             VoterInterface::ACCESS_DENIED,
@@ -61,7 +61,7 @@ class MessageVoterTest extends TestCase {
     }
 
     public function testPrzypisanyAdminWidziWiadomosc(): void {
-        $admin = Fixtures::user('admin@example.com', ['ROLE_ADMIN']);
+        $admin = EntityFactory::user('admin@example.com', ['ROLE_ADMIN']);
 
         $this->assertSame(
             VoterInterface::ACCESS_GRANTED,
@@ -74,7 +74,7 @@ class MessageVoterTest extends TestCase {
      * jej wpuścić — brak konta to brak podstawy do zgody, nie „wszystko wolno".
      */
     public function testWiadomoscBezKontaJestOdrzucana(): void {
-        $user = Fixtures::user('user@example.com');
+        $user = EntityFactory::user('user@example.com');
 
         $this->assertSame(
             VoterInterface::ACCESS_DENIED,
@@ -99,7 +99,7 @@ class MessageVoterTest extends TestCase {
      * Voterów (np. przyszłego `DELETE` z etapu 6).
      */
     public function testNieWypowiadaSieOInnymAtrybucieAniInnymObiekcie(): void {
-        $user  = Fixtures::user('user@example.com');
+        $user  = EntityFactory::user('user@example.com');
         $voter = new MessageVoter($this->repositoryReturning([self::ACCOUNT_ID]));
         $token = new UsernamePasswordToken($user, 'main', $user->getRoles());
 
@@ -153,9 +153,9 @@ class MessageVoterTest extends TestCase {
      * @return Message Wiadomość gotowa do głosowania
      */
     private function messageFromAccount(int $accountId): Message {
-        $account = Fixtures::account();
-        Fixtures::withId($account, $accountId);
+        $account = EntityFactory::account();
+        EntityFactory::withId($account, $accountId);
 
-        return Fixtures::message($account);
+        return EntityFactory::message($account);
     }
 }

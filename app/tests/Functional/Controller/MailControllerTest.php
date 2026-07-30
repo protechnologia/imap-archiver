@@ -7,7 +7,7 @@ namespace App\Tests\Functional\Controller;
 use App\Entity\MailAccount;
 use App\Entity\Message;
 use App\Entity\User;
-use App\Tests\Support\Fixtures;
+use App\Tests\Fixtures\EntityFactory;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -173,7 +173,7 @@ class MailControllerTest extends WebTestCase {
      * @return MailAccount Konto z nadanym ID
      */
     private function givenAccount(string $label = 'Konto testowe'): MailAccount {
-        $account = Fixtures::account($label);
+        $account = EntityFactory::account($label);
         $this->em->persist($account);
         $this->em->flush();
 
@@ -190,7 +190,7 @@ class MailControllerTest extends WebTestCase {
      * @return User Użytkownik z nadanym ID
      */
     private function givenUser(string $email, ?MailAccount $account = null, array $roles = []): User {
-        $user = Fixtures::user($email, $roles);
+        $user = EntityFactory::user($email, $roles);
         $account?->addUser($user);
         $this->em->persist($user);
         $this->em->flush();
@@ -207,7 +207,7 @@ class MailControllerTest extends WebTestCase {
      * @return Message Wiadomość z nadanym ID
      */
     private function givenMessage(MailAccount $account, string $subject): Message {
-        $message = Fixtures::message($account, $subject, new \DateTimeImmutable('2026-06-01 08:00'));
+        $message = EntityFactory::message($account, $subject, new \DateTimeImmutable('2026-06-01 08:00'));
         $this->em->persist($message);
         $this->em->flush();
 

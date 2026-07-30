@@ -106,9 +106,12 @@ Zestaw wystartował przy etapie 4.2 (PHPUnit + `symfony/test-pack` + `dama/doctr
 - **Repozytoria integracyjnie i KONIECZNIE na Postgresie.** `searchPage()` testuje zachowania silnika
   (`NULLS FIRST` przy `DESC`, `LIKE` wrażliwy na wielkość liter, `ESCAPE`); na SQLite „dla szybkości"
   te testy świeciłyby na zielono przy zepsutym kodzie.
-- **Dane testowe budujemy w kodzie** (`tests/Support/Fixtures.php`), bez `DoctrineFixturesBundle` —
-  każdy test potrzebuje 2-3 rekordów ustawionych pod konkretny przypadek, nie wspólnego zestawu.
-  `Fixtures::withId()` wstawia ID refleksją WYŁĄCZNIE dla testów bez bazy (encje nie mają settera `id`).
+- **Dane testowe budujemy w kodzie** (`tests/Fixtures/EntityFactory.php`), bez `DoctrineFixturesBundle`
+  — każdy test potrzebuje 2-3 rekordów ustawionych pod konkretny przypadek, nie wspólnego zestawu.
+  `EntityFactory::withId()` wstawia ID refleksją WYŁĄCZNIE dla testów bez bazy (encje nie mają
+  settera `id`). Statyczne dane (surowe `.eml`) leżą obok, w `tests/Fixtures/eml/` — `tests/Fixtures/`
+  to jedno miejsce na wszystko, z czego testy czerpią dane; klasa nazywa się `EntityFactory`, a nie
+  `Fixtures`, żeby nie dublować nazwy katalogu.
 - **`dama/doctrine-test-bundle`** owija każdy test w transakcję cofaną na końcu — testy nie widzą
   swoich danych nawzajem i nie sprzątają ręcznie. Recipe jest w `recipes-contrib`, więc rejestracja
   bundla (`config/bundles.php`) i rozszerzenia PHPUnit (`phpunit.dist.xml`) jest ROBIONA RĘCZNIE.
@@ -198,10 +201,12 @@ mieszkają w sekcjach **Architektura**, **Model danych**, **Konfiguracja i sekre
           ścieżce, ale innej treści (zapis content-addressed go nie nadpisze) zostawia
           `verified=false` i wpis w `errors[]`. Testy zweryfikowane mutacją: wyłączenie
           `existsForContent()` i porównania checksumów zapala dokładnie te dwa przypadki.
-    - [ ] **`MessageFactory`** (jednostkowo, fixtury `.eml` w `tests/Fixtures/`): dekodowanie
+    - [x] **`MessageFactory`** (jednostkowo, fixtury `.eml` w `tests/Fixtures/eml/`): dekodowanie
           `=?UTF-8?B?…?=` przez iconv, zdjęcie cudzysłowów z `personal`, preferencja części
           `text` nad HTML, brak `Date` → null, metadane załączników. Ubezpieczenie na podbicie
           wersji webkleksa — to jedyne miejsce zależne od jego parsera.
+          ➜ 10 przypadków; test **znalazł realny błąd**: mail bez nagłówka `Date` dostawał
+          w indeksie `1970-01-01` zamiast `null` (patrz gotcha o pustym `Attribute::first()`).
     - [ ] **`EncryptedStringType` + `CredentialEncryptor`**: po zapisie `MailAccount` w kolumnie
           NIE MA plaintextu (sprawdzane surowym SQL-em), odczyt oddaje jawną wartość; round-trip,
           dwa szyfrowania tego samego tekstu dają różne szyfrogramy, zły klucz i uszkodzony
@@ -330,6 +335,12 @@ Eksploratora Windows pod `\\wsl.localhost\dev-edor-gw\root\projects\imap-archive
   `Message::fromString($raw, Config::make(['decoding' => ['options' => ['header' => 'iconv']]]))` —
   dekoduje spójnie temat i `personal` w adresach. Robi to `MessageFactory`. Osobno: webklex zostawia
   w `Address::$personal` cudzysłowy quoted-string — zdejmuje je `MessageFactory::cleanPersonal()`.
+- **Webklex przy BRAKU nagłówka `Date` nie oddaje null — oddaje epokę.** `getDate()->first()` zwraca
+  pusty string (atrybut istnieje, tylko jest pusty), więc warunek `=== null` nie zadziała, a
+  `toDate()` na pustce daje Carbona `1970-01-01 00:00`. Mail bez daty dostawałby w indeksie fałszywą
+  datę wysłania udającą prawdziwą (i sortowałby się jak najstarszy zamiast wypaść na koniec przez
+  `NULLS LAST`). `MessageFactory::extractDate()` testuje więc PUSTKĘ WARTOŚCI, nie `null`.
+  Wykrył to `MessageFactoryTest` — bez niego błąd byłby niewidoczny, bo `.eml` na dysku jest poprawny.
 - **Read-only w webklex jest pozorne: `leaveUnread()` NIE robi PEEK, tylko set-then-unset.** Body leci
   przez `BODY[TEXT]` (ustawia `\Seen`), a flaga zdejmowana jest dopiero PO fakcie osobnym `STORE` —
   netto unseen zostaje unseen, ale to nie jest atomowy read-only. Ping był czysty głównie dzięki

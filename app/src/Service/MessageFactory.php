@@ -135,12 +135,17 @@ final class MessageFactory {
      * To nagłówek `Date` (nie INTERNALDATE, po którym selekcjonujemy rok) — rozjazd tylko raportujemy,
      * nic po nim nie odrzucamy (patrz gotcha SINCE/BEFORE w CLAUDE.md).
      *
+     * PUŁAPKA: przy braku nagłówka `Date` webklex NIE oddaje null. `Attribute::first()` zwraca pusty
+     * string (atrybut istnieje, tylko jest pusty), a `toDate()` na pustej wartości daje Carbona
+     * z epoki — mail bez daty dostałby w indeksie „1970-01-01 00:00" udające prawdziwą datę wysłania.
+     * Stąd test pustki na wartości, nie na `null`.
+     *
      * @param ImapMessage $parsed Sparsowana wiadomość webklex
      *
      * @return \DateTimeImmutable|null Data, np. new \DateTimeImmutable('2026-06-16 07:58:58')
      */
     private function extractDate(ImapMessage $parsed): ?\DateTimeImmutable {
-        if ($parsed->getDate()->first() === null) {
+        if (trim((string) $parsed->getDate()->first()) === '') {
             return null;
         }
 

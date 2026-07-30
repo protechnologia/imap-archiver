@@ -1,0 +1,6 @@
+From: <bezdaty@example.com>
+To: biuro@example.com
+Subject: Bez daty
+Content-Type: text/plain; charset=UTF-8
+
+Mail bez nagłówka Date i bez Message-ID.

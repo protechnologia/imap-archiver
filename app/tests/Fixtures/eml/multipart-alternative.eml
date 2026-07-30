@@ -1,0 +1,17 @@
+From: anna@example.com
+Subject: Dwie wersje
+Date: Wed, 01 Jul 2026 12:00:00 +0000
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="GRANICA"
+
+--GRANICA
+Content-Type: text/plain; charset=UTF-8
+
+To jest wersja tekstowa.
+
+--GRANICA
+Content-Type: text/html; charset=UTF-8
+
+<html><body><p>To jest wersja HTML.</p></body></html>
+
+--GRANICA--

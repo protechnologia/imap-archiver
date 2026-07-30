@@ -1,0 +1,19 @@
+From: anna@example.com
+Subject: Z załącznikiem
+Date: Wed, 01 Jul 2026 12:00:00 +0000
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="GRANICA"
+
+--GRANICA
+Content-Type: text/plain; charset=UTF-8
+
+Treść z załącznikiem.
+
+--GRANICA
+Content-Type: application/pdf; name="faktura.pdf"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="faktura.pdf"
+
+JVBERi0xLjQKRmFrdHVyYSB0ZXN0b3dhCiUlRU9GCg==
+
+--GRANICA--

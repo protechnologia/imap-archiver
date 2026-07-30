@@ -13,7 +13,7 @@ use App\Service\ArchiveStorage;
 use App\Service\ImapReader;
 use App\Service\ImportManager;
 use App\Service\MessageFactory;
-use App\Tests\Support\Fixtures;
+use App\Tests\Fixtures\EntityFactory;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Filesystem\Filesystem;
@@ -193,7 +193,7 @@ class ImportManagerTest extends KernelTestCase {
      * @return MailAccount Konto z nadanym ID
      */
     private function givenAccount(): MailAccount {
-        $account = Fixtures::account();
+        $account = EntityFactory::account();
         $this->em->persist($account);
         $this->em->flush();
 

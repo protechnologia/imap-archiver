@@ -7,7 +7,7 @@ namespace App\Tests\Integration\Repository;
 use App\Entity\MailAccount;
 use App\Entity\User;
 use App\Repository\MailAccountRepository;
-use App\Tests\Support\Fixtures;
+use App\Tests\Fixtures\EntityFactory;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -34,7 +34,7 @@ class MailAccountRepositoryTest extends KernelTestCase {
      * — panel kont w 4.3 potrzebuje kolejności deterministycznej, nie „takiej, jaką zwróci baza".
      */
     public function testZwracaTylkoPrzypisaneKontaPosortowanePoEtykiecie(): void {
-        $user = Fixtures::user('user@example.com');
+        $user = EntityFactory::user('user@example.com');
         $this->em->persist($user);
 
         $zetka = $this->givenAccount('Zetka', $user);
@@ -54,7 +54,7 @@ class MailAccountRepositoryTest extends KernelTestCase {
      * skrzynki) — ma dostać pustkę, a nie wyjątek ani wszystko.
      */
     public function testUzytkownikBezPrzypisanDostajePustaListe(): void {
-        $user = Fixtures::user('outsider@example.com');
+        $user = EntityFactory::user('outsider@example.com');
         $this->em->persist($user);
         $this->givenAccount('Cudze konto');
         $this->em->flush();
@@ -72,7 +72,7 @@ class MailAccountRepositoryTest extends KernelTestCase {
      * @return MailAccount Konto (bez `flush()` — robi go test)
      */
     private function givenAccount(string $label, ?User $user = null): MailAccount {
-        $account = Fixtures::account($label);
+        $account = EntityFactory::account($label);
         if ($user !== null) {
             $account->addUser($user);
         }
