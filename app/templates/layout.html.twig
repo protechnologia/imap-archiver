@@ -4,13 +4,18 @@
   Osobno od `base.html.twig`, bo base obsługuje TEŻ stronę logowania, a tam nagłówek
   z „Wyloguj się" i `app.user.userIdentifier` nie ma sensu (i wywaliłby się na null).
   Strony za firewallem dziedziczą stąd i wypełniają blok `main`.
+
+  Od 4.3b układ jest NA PEŁNĄ WYSOKOŚĆ OKNA (`h-screen` + kolumna flex): nagłówek się nie
+  przewija, a blok `main` dostaje całą resztę i sam zarządza swoim przewijaniem. `min-h-0`
+  na `main` jest konieczne — bez niego dziecko flexa ma `min-height: auto`, rozpycha rodzica
+  i wewnętrzne `overflow-y-auto` nigdy się nie uruchamia (klasyczna pułapka flex/grid).
 #}
 {% extends 'base.html.twig' %}
 
 {% block body %}
-    <div class="min-h-screen bg-slate-50">
-        <header class="border-b border-slate-200 bg-white">
-            <div class="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+    <div class="flex h-screen flex-col bg-slate-50">
+        <header class="shrink-0 border-b border-slate-200 bg-white">
+            <div class="flex items-center justify-between px-4 py-3">
                 <a href="{{ path('app_mail_index') }}" class="flex items-center gap-2">
                     <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-sm text-white">✉</span>
                     <span class="font-semibold text-slate-900">imap-archiver</span>

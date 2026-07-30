@@ -29,6 +29,15 @@ return (new PhpCsFixer\Config())
             'functions_opening_brace' => 'same_line',
         ],
 
+        // WYJĄTEK od PSR-12 (decyzja projektu): pusty wiersz zaraz po klamrze otwierającej klasę
+        // (i symetrycznie przed zamykającą — tego PSR-12 nie rusza, więc reguły nie trzeba wyłączać).
+        'no_blank_lines_after_class_opening' => false,
+
+        // WYJĄTEK od PSR-12 (decyzja projektu): wielokrotne spacje po przecinku wolno zostawić,
+        // gdy służą WYRÓWNANIU KOLUMN — tak jak spacje po `:` w argumentach nazwanych. Dotyczy
+        // m.in. dwóch `#[Route]` nad jedną akcją, gdzie w kolumnach widać, czym się różnią.
+        'method_argument_space' => ['keep_multiple_spaces_after_comma' => true],
+
         // Konwencja: `declare(strict_types=1)` w każdym pliku PHP.
         'declare_strict_types' => true,
 

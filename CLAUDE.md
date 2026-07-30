@@ -211,11 +211,22 @@ mieszkają w sekcjach **Architektura**, **Model danych**, **Konfiguracja i sekre
           ➜ zweryfikowane curl-em: `/mail` i `/mail?account=67` (nagłówek listy i linki niosą
           wybrane konto), `?account=999` cicho ignorowane, `/mail/2` renderuje komplet paneli
           z tematem w `h1`, 110 testów z 4.2b dalej zielonych.
-    - [ ] **4.3b — layout i stany puste.** Siatka Tailwind na pełną wysokość, **osobne przewijanie
+    - [x] **4.3b — layout i stany puste.** Siatka Tailwind na pełną wysokość, **osobne przewijanie
           każdej kolumny** (nie jedno dla całej strony), panel kont z `findForUser()` (stała
           kolejność po `label`), zaznaczenie aktywnego konta, sensowne pustki: brak kont, konto bez
           wiadomości, brak wybranej wiadomości. Foldery na razie płasko — `Message.folder` jest
           stringiem z importu, drzewo folderów to nie ten etap.
+          **Warunek działania przewijania kolumn: `min-h-0` na elemencie z `overflow-y-auto`.**
+          Element gridu/flexa ma domyślnie `min-height: auto`, więc bez tego rozpycha siatkę
+          zamiast przyciąć zawartość i pasek przewijania nigdy się nie pojawia.
+          Wąskie ekrany MINIMALNIE (to narzędzie desktopowe): poniżej `lg` panel kont zamienia się
+          w poziomy pasek nad listą, poniżej `md` widać albo listę, albo podgląd — sterowane samym
+          `message`, bez JS-a. Pasek jest konieczny, a nie ozdobny: panel kont to JEDYNY sposób
+          zmiany skrzynki, więc samo jego ukrycie odbierałoby funkcję, nie tylko widok.
+          Nagłówki kolumn i paginacja są `sticky` w obrębie swojej kolumny.
+          ➜ zweryfikowane: klasy skompilowane do `var/tailwind/app.built.css`, struktura kolumn
+          w renderze zgodna, 117 testów zielonych. UWAGA: po dołożeniu nowych klas trzeba puścić
+          `tailwind:build` (albo `--watch` na czas pracy nad stylami).
     - [ ] **4.3c — Turbo Frames.** Regiony w `<turbo-frame>`, linki listy celują w ramkę podglądu
           (`data-turbo-frame`), a nawigacja wychodząca poza moduł (panel admina, wylogowanie) ma
           `target="_top"` — inaczej cała aplikacja wyląduje w środkowej kolumnie. Punkt kontrolny:

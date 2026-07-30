@@ -28,7 +28,7 @@ use Symfony\Component\HttpFoundation\Response;
  * uwierzytelnianie (formularz i stateless CSRF mają własne zachowanie, opisane w CLAUDE.md).
  */
 class MailControllerTest extends WebTestCase {
-    
+
     private KernelBrowser $client;
     private EntityManagerInterface $em;
 

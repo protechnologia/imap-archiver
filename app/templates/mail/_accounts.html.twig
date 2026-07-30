@@ -1,17 +1,19 @@
 {#
-  Lewy region: konta użytkownika (etap 4.3a).
+  Lewy region: konta użytkownika (etapy 4.3a i 4.3b).
 
   Kolejność narzuca `MailAccountRepository::findForUser()` (`ORDER BY label`) — panel ma wyglądać
   tak samo przy każdym wejściu. „Wszystkie konta" to stan domyślny, a nie osobne konto: brak
   parametru `?account=` znaczy „nie zawężaj".
 
-  Pusta lista kont jest POPRAWNYM stanem (świeży użytkownik, admin bez przypisania), nie błędem.
+  Pusta lista kont jest POPRAWNYM stanem (świeży użytkownik, admin bez przypisania), nie błędem —
+  stąd komunikat z podpowiedzią, co zrobić dalej, a nie surowe „brak danych".
 #}
-<nav class="rounded-lg bg-white p-2 text-sm ring-1 ring-slate-200">
+<nav class="p-2 text-sm">
     {% if accounts is empty %}
-        <div class="px-2 py-3 text-slate-600">
-            <p class="font-medium text-slate-900">Nie masz przypisanych kont pocztowych.</p>
-            <p class="mt-1">
+        <div class="px-2 py-4 text-slate-600">
+            <p class="font-medium text-slate-900">Brak kont pocztowych</p>
+            <p class="mt-1 text-xs leading-relaxed">
+                Nie masz przypisanych kont pocztowych.
                 {% if is_granted('ROLE_ADMIN') %}
                     Przypisz sobie konto w <a href="{{ path('admin') }}" class="font-medium text-slate-900 underline">panelu admina</a>.
                 {% else %}
@@ -20,13 +22,17 @@
             </p>
         </div>
     {% else %}
+        <p class="px-3 pb-1 pt-2 text-xs font-medium uppercase tracking-wide text-slate-400">Konta</p>
+
         <a href="{{ path('app_mail_index') }}"
-           class="block rounded-md px-3 py-2 {{ selectedAccount is null ? 'bg-slate-900 font-medium text-white' : 'text-slate-700 hover:bg-slate-100' }}">
+           class="block truncate rounded-md px-3 py-2 {{ selectedAccount is null ? 'bg-slate-900 font-medium text-white' : 'text-slate-700 hover:bg-slate-100' }}">
             Wszystkie konta
         </a>
+
         {% for account in accounts %}
             <a href="{{ path('app_mail_index', {account: account.id}) }}"
-               class="mt-1 block rounded-md px-3 py-2 {{ selectedAccount and selectedAccount.id == account.id ? 'bg-slate-900 font-medium text-white' : 'text-slate-700 hover:bg-slate-100' }}">
+               title="{{ account.label }}"
+               class="mt-0.5 block truncate rounded-md px-3 py-2 {{ selectedAccount and selectedAccount.id == account.id ? 'bg-slate-900 font-medium text-white' : 'text-slate-700 hover:bg-slate-100' }}">
                 {{ account.label }}
             </a>
         {% endfor %}

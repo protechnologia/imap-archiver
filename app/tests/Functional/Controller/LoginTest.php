@@ -23,7 +23,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  * i żaden inny test tego nie dotyka, bo wszystkie zaczynają już od zalogowanej sesji.
  */
 class LoginTest extends WebTestCase {
-    
+
     private const PASSWORD = 'Tajne123!';
 
     private KernelBrowser $client;

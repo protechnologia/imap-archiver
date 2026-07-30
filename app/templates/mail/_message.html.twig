@@ -1,45 +1,61 @@
 {#
-  Prawy region: podgląd wiadomości (etap 4.3a).
+  Prawy region: podgląd wiadomości (etapy 4.3a i 4.3b).
 
   `message` bywa null — to normalny stan (`/mail` bez wybranej wiadomości), nie błąd.
 
   Treść pokazujemy jako `Message.body`, czyli TEKSTOWE ziarno z indeksu. Pełny HTML czytany
   z `.eml`, przepuszczony przez HTMLPurifier i osadzony w `<iframe sandbox>`, wchodzi w 4.5;
   pobieranie załączników w 4.6 (tu widać wyłącznie ich metadane).
+
+  Nagłówek wiadomości jest `sticky` w obrębie kolumny: przy długim mailu temat i nadawca
+  zostają w polu widzenia.
 #}
 {% if message is null %}
-    <div class="rounded-lg bg-white px-4 py-10 text-center text-sm text-slate-500 ring-1 ring-slate-200">
-        Wybierz wiadomość z listy.
+    <div class="flex h-full items-center justify-center px-6 py-16 text-center">
+        <div>
+            <p class="text-3xl text-slate-300">✉</p>
+            <p class="mt-2 text-sm text-slate-500">Wybierz wiadomość z listy.</p>
+        </div>
     </div>
 {% else %}
-    <article class="rounded-lg bg-white ring-1 ring-slate-200">
-        <header class="border-b border-slate-200 px-4 py-3">
+    <article>
+        <header class="sticky top-0 z-10 border-b border-slate-200 bg-white px-5 py-4">
             <h1 class="text-lg font-semibold text-slate-900">{{ message.subject|default('(bez tematu)') ?: '(bez tematu)' }}</h1>
-            <p class="mt-1 text-sm text-slate-600">
+            <p class="mt-1 text-sm text-slate-700">
                 {{ message.fromName }}{% if message.fromEmail %} <span class="text-slate-500">&lt;{{ message.fromEmail }}&gt;</span>{% endif %}
             </p>
-            <p class="mt-0.5 text-xs text-slate-500">
-                {{ message.date ? message.date|date('Y-m-d H:i') : '— brak nagłówka Date' }}
-                · {{ message.account.label }} / {{ message.folder }}
-                · {{ message.size|bytes }}
-                · {{ message.verified ? 'zweryfikowana' : 'NIEZWERYFIKOWANA' }}
+            <p class="mt-1 flex flex-wrap gap-x-2 text-xs text-slate-500">
+                <span>{{ message.date ? message.date|date('Y-m-d H:i') : '— brak nagłówka Date' }}</span>
+                <span aria-hidden="true">·</span>
+                <span>{{ message.account.label }} / {{ message.folder }}</span>
+                <span aria-hidden="true">·</span>
+                <span>{{ message.size|bytes }}</span>
+                <span aria-hidden="true">·</span>
+                {# `verified` = jest w DB + jest plik + checksum się zgadza. Brak tej flagi jest
+                   istotny (blokuje kasowanie z serwera w etapie 6), więc widać go wyraźnie. #}
+                <span class="{{ message.verified ? 'text-slate-500' : 'font-medium text-amber-700' }}">
+                    {{ message.verified ? 'zweryfikowana' : 'NIEZWERYFIKOWANA' }}
+                </span>
             </p>
         </header>
 
         {% if message.attachments|length > 0 %}
-            <div class="border-b border-slate-200 px-4 py-3 text-sm">
-                <p class="font-medium text-slate-900">Załączniki ({{ message.attachments|length }})</p>
-                <ul class="mt-1 space-y-0.5 text-slate-600">
+            <div class="border-b border-slate-200 bg-white px-5 py-3 text-sm">
+                <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Załączniki ({{ message.attachments|length }})</p>
+                <ul class="mt-1 space-y-0.5 text-slate-700">
                     {% for attachment in message.attachments %}
-                        <li>{{ attachment.filename }} <span class="text-slate-400">· {{ attachment.size|bytes }} · {{ attachment.mimeType }}</span></li>
+                        <li class="truncate">
+                            {{ attachment.filename }}
+                            <span class="text-slate-400">· {{ attachment.size|bytes }} · {{ attachment.mimeType }}</span>
+                        </li>
                     {% endfor %}
                 </ul>
             </div>
         {% endif %}
 
-        <div class="px-4 py-4">
+        <div class="bg-white px-5 py-4">
             {% if message.body %}
-                <pre class="whitespace-pre-wrap break-words font-sans text-sm text-slate-800">{{ message.body }}</pre>
+                <pre class="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-slate-800">{{ message.body }}</pre>
             {% else %}
                 <p class="text-sm text-slate-500">Ta wiadomość nie ma treści tekstowej w indeksie.</p>
             {% endif %}

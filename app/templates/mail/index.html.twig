@@ -1,22 +1,35 @@
 {#
-  Skrzynka — trzy regiony: konta → lista → podgląd (etap 4.3a).
+  Skrzynka — trzy regiony: konta → lista → podgląd (etapy 4.3a i 4.3b).
 
   Ten sam szablon obsługuje `/mail` i `/mail/{id}`; różnica to wyłącznie `message` (null albo
-  encja). Regiony są wydzielone do partiali, bo w 4.3c każdy z nich zostanie opakowany
-  w `<turbo-frame>` i musi dać się wyrenderować w izolacji.
+  encja). Regiony są wydzielone do partiali, bo w 4.3c każdy zostanie opakowany w `<turbo-frame>`
+  i musi dać się wyrenderować w izolacji.
 
-  Układ jest tu ROBOCZY — siatka na pełną wysokość, osobne przewijanie kolumn i dopracowane
-  stany puste wchodzą w 4.3b. Na tym etapie liczy się, że nawigacja działa na pełnych
-  przeładowaniach, bez JS.
+  Układ (4.3b): trzy kolumny wypełniające okno, KAŻDA PRZEWIJANA OSOBNO — przewijanie listy nie
+  rusza panelu kont ani podglądu, jak w każdym kliencie poczty. Warunkiem działania jest para
+  `min-h-0` + `overflow-y-auto` na kolumnie: bez `min-h-0` element gridu ma `min-height: auto`,
+  więc rozpycha siatkę zamiast przyciąć zawartość i pasek przewijania nigdy się nie pojawia.
+
+  Wąskie ekrany obsługujemy MINIMALNIE — to narzędzie desktopowe, nie aplikacja mobilna:
+  poniżej `lg` znika panel kont (wybór konta zostaje w adresie), a poniżej `md` widać albo listę,
+  albo podgląd — czyli to, co użytkownik wybrał. Bez szufladek i bez JS-a.
 #}
 {% extends 'layout.html.twig' %}
 
-{% block title %}{{ message ? message.subject|default('(bez tematu)') : 'Poczta' }} — imap-archiver{% endblock %}
+{% block title %}{{ message ? (message.subject|default('(bez tematu)') ?: '(bez tematu)') : 'Poczta' }} — imap-archiver{% endblock %}
 
 {% block main %}
-    <main class="mx-auto grid max-w-7xl grid-cols-[16rem_22rem_1fr] gap-4 px-4 py-6">
-        <aside>{{ include('mail/_accounts.html.twig') }}</aside>
-        <section>{{ include('mail/_list.html.twig') }}</section>
-        <section>{{ include('mail/_message.html.twig') }}</section>
+    <main class="grid min-h-0 flex-1 grid-cols-1 gap-px bg-slate-200 md:grid-cols-[22rem_1fr] lg:grid-cols-[16rem_24rem_1fr]">
+        <aside class="hidden min-h-0 overflow-y-auto bg-white lg:block">
+            {{ include('mail/_accounts.html.twig') }}
+        </aside>
+
+        <section class="min-h-0 overflow-y-auto bg-white {{ message ? 'hidden md:block' : '' }}">
+            {{ include('mail/_list.html.twig') }}
+        </section>
+
+        <section class="min-h-0 overflow-y-auto bg-slate-50 {{ message ? '' : 'hidden md:block' }}">
+            {{ include('mail/_message.html.twig') }}
+        </section>
     </main>
 {% endblock %}

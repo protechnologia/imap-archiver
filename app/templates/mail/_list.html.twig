@@ -1,57 +1,86 @@
 {#
-  Środkowy region: lista wiadomości (etap 4.3a).
+  Środkowy region: lista wiadomości (etapy 4.3a i 4.3b).
 
   Zawężenie do kont zrobiło już repozytorium — tu tylko renderujemy `page.items`. W 4.4 wnętrze
   tego partiala przejmie Live Component `MailList` (szukanie i paginacja jako `LiveProp`),
   dlatego linki paginacji celowo NIOSĄ aktualne `account`: stan widoku ma mieścić się w adresie.
+
+  Nagłówek i paginacja są `sticky` w obrębie przewijanej kolumny — przy 50 wiadomościach na
+  stronie inaczej trzeba by skrolować na sam dół, żeby przejść dalej.
 #}
 {% set navParams = selectedAccount ? {account: selectedAccount.id} : {} %}
 
-<div class="rounded-lg bg-white ring-1 ring-slate-200">
-    <header class="flex items-baseline justify-between border-b border-slate-200 px-3 py-2">
-        <h2 class="font-medium text-slate-900">{{ selectedAccount ? selectedAccount.label : 'Wszystkie konta' }}</h2>
-        <span class="text-xs text-slate-500">{{ page.total }} wiadomości</span>
-    </header>
+<header class="sticky top-0 z-10 border-b border-slate-200 bg-white/95 backdrop-blur">
+    <div class="flex items-baseline justify-between px-3 py-2">
+        <h2 class="truncate font-medium text-slate-900">{{ selectedAccount ? selectedAccount.label : 'Wszystkie konta' }}</h2>
+        <span class="shrink-0 pl-2 text-xs text-slate-500">{{ page.total }}</span>
+    </div>
 
-    {% if page.items is empty %}
-        <p class="px-3 py-6 text-sm text-slate-600">Brak zaimportowanych wiadomości.</p>
-    {% else %}
-        <ul class="divide-y divide-slate-100">
-            {% for item in page.items %}
-                {# Aktywny wiersz poznajemy po oglądanej wiadomości — po włączeniu ramek w 4.3c
-                   lista zostaje na miejscu, a zmienia się tylko prawy panel, więc podświetlenie
-                   musi wynikać z danych, nie z JS-a. #}
-                <li class="{{ message and message.id == item.id ? 'bg-slate-100' : 'hover:bg-slate-50' }}">
-                    <a href="{{ path('app_mail_show', navParams|merge({id: item.id})) }}" class="block px-3 py-2">
-                        <span class="flex items-baseline justify-between gap-2">
-                            <span class="truncate text-sm font-medium text-slate-900">
-                                {{ item.subject|default('(bez tematu)') ?: '(bez tematu)' }}
-                            </span>
-                            <span class="shrink-0 text-xs text-slate-500">
-                                {{ item.date ? item.date|date('Y-m-d H:i') : '— brak daty' }}
-                            </span>
-                        </span>
-                        <span class="mt-0.5 flex items-baseline justify-between gap-2 text-xs text-slate-500">
-                            <span class="truncate">{{ item.fromName ?: item.fromEmail }}</span>
-                            <span class="shrink-0">{{ item.size|bytes }}{% if item.hasAttachments %} 📎{% endif %}</span>
-                        </span>
-                    </a>
-                </li>
+    {# Poniżej `lg` panel kont jest schowany, a jest JEDYNYM sposobem zmiany konta — bez tego
+       paska zmiana skrzynki na wąskim ekranie wymagałaby ręcznej edycji adresu. Pokazujemy go
+       przy KAŻDEJ niepustej liście kont, tak samo jak panel po lewej: przy jednym koncie nie ma
+       wprawdzie czego przełączać, ale widać, w której skrzynce się jest, i nie trzeba pamiętać
+       o wyjątku „na wąskim ekranie z jednym kontem panel po prostu znika". #}
+    {% if accounts is not empty %}
+        <div class="flex gap-1 overflow-x-auto border-t border-slate-100 px-3 py-2 text-xs lg:hidden">
+            <a href="{{ path('app_mail_index') }}"
+               class="shrink-0 rounded-full px-2.5 py-1 {{ selectedAccount is null ? 'bg-slate-900 font-medium text-white' : 'text-slate-600 ring-1 ring-slate-300 hover:bg-slate-100' }}">
+                Wszystkie
+            </a>
+            {% for account in accounts %}
+                <a href="{{ path('app_mail_index', {account: account.id}) }}"
+                   class="shrink-0 max-w-40 truncate rounded-full px-2.5 py-1 {{ selectedAccount and selectedAccount.id == account.id ? 'bg-slate-900 font-medium text-white' : 'text-slate-600 ring-1 ring-slate-300 hover:bg-slate-100' }}">
+                    {{ account.label }}
+                </a>
             {% endfor %}
-        </ul>
-
-        {% if page.pages > 1 %}
-            <nav class="flex items-center justify-between border-t border-slate-200 px-3 py-2 text-xs">
-                {% if page.page > 1 %}
-                    <a href="{{ path('app_mail_index', navParams|merge({page: page.page - 1})) }}"
-                       class="rounded px-2 py-1 font-medium text-slate-700 ring-1 ring-slate-300 hover:bg-slate-100">Poprzednia</a>
-                {% else %}<span></span>{% endif %}
-                <span class="text-slate-500">{{ page.page }} z {{ page.pages }}</span>
-                {% if page.page < page.pages %}
-                    <a href="{{ path('app_mail_index', navParams|merge({page: page.page + 1})) }}"
-                       class="rounded px-2 py-1 font-medium text-slate-700 ring-1 ring-slate-300 hover:bg-slate-100">Następna</a>
-                {% else %}<span></span>{% endif %}
-            </nav>
-        {% endif %}
+        </div>
     {% endif %}
-</div>
+</header>
+
+{% if page.items is empty %}
+    <div class="px-3 py-10 text-center text-sm text-slate-500">
+        {% if selectedAccount %}
+            Na koncie „{{ selectedAccount.label }}" nie ma jeszcze zaimportowanych wiadomości.
+        {% else %}
+            Brak zaimportowanych wiadomości.
+        {% endif %}
+    </div>
+{% else %}
+    <ul class="divide-y divide-slate-100">
+        {% for item in page.items %}
+            {# Aktywny wiersz poznajemy po oglądanej wiadomości — po włączeniu ramek w 4.3c lista
+               zostaje na miejscu, a zmienia się tylko prawy panel, więc podświetlenie musi
+               wynikać z danych, nie z JS-a. #}
+            <li class="{{ message and message.id == item.id ? 'bg-slate-100' : 'hover:bg-slate-50' }}">
+                <a href="{{ path('app_mail_show', navParams|merge({id: item.id})) }}" class="block px-3 py-2">
+                    <span class="flex items-baseline justify-between gap-2">
+                        <span class="truncate text-sm font-medium text-slate-900">
+                            {{ item.subject|default('(bez tematu)') ?: '(bez tematu)' }}
+                        </span>
+                        <span class="shrink-0 text-xs tabular-nums text-slate-500">
+                            {{ item.date ? item.date|date('Y-m-d H:i') : '— brak daty' }}
+                        </span>
+                    </span>
+                    <span class="mt-0.5 flex items-baseline justify-between gap-2 text-xs text-slate-500">
+                        <span class="truncate">{{ item.fromName ?: item.fromEmail }}</span>
+                        <span class="shrink-0 tabular-nums">{{ item.size|bytes }}{% if item.hasAttachments %} <span title="Załączniki">📎</span>{% endif %}</span>
+                    </span>
+                </a>
+            </li>
+        {% endfor %}
+    </ul>
+
+    {% if page.pages > 1 %}
+        <nav class="sticky bottom-0 flex items-center justify-between border-t border-slate-200 bg-white/95 px-3 py-2 text-xs backdrop-blur">
+            {% if page.page > 1 %}
+                <a href="{{ path('app_mail_index', navParams|merge({page: page.page - 1})) }}"
+                   class="rounded px-2 py-1 font-medium text-slate-700 ring-1 ring-slate-300 hover:bg-slate-100">Poprzednia</a>
+            {% else %}<span></span>{% endif %}
+            <span class="tabular-nums text-slate-500">{{ page.page }} z {{ page.pages }}</span>
+            {% if page.page < page.pages %}
+                <a href="{{ path('app_mail_index', navParams|merge({page: page.page + 1})) }}"
+                   class="rounded px-2 py-1 font-medium text-slate-700 ring-1 ring-slate-300 hover:bg-slate-100">Następna</a>
+            {% else %}<span></span>{% endif %}
+        </nav>
+    {% endif %}
+{% endif %}
