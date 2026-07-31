@@ -14,7 +14,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Podgląd poczty przez pełny stos HTTP (etap 4.2).
+ * Podgląd poczty przez pełny stos HTTP (etapy 4.2 i 4.3c).
  *
  * Testy jednostkowe Votera sprawdzają samą REGUŁĘ; tu sprawdzamy rzeczy, których w izolacji
  * zobaczyć się nie da, bo nie mieszkają w klasie kontrolera: `#[IsGranted]` i `#[CurrentUser]`
@@ -23,6 +23,12 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * Najważniejszy przypadek: `testNieprzypisanyAdminDostaje403NaCudzymMailu()` — dopóki jest zielony,
  * `ROLE_ADMIN` nie jest cichym skrótem do cudzej korespondencji.
+ *
+ * Od 4.3c doszły dwa przypadki pilnujące KONTRAKTU Z TURBO (obecność ramki, kompletność deep linku).
+ * `WebTestCase` nie wykonuje JS-u, więc nie sprawdzamy tu ZACHOWANIA Turbo — tylko to, czy serwer
+ * wysyła HTML, na którym Turbo może zadziałać. Zaznaczenia wiersza po kliknięciu świadomie nie
+ * testujemy: do 4.4 nie przestawia się ono w ogóle (luka opisana w `_list.html.twig`), a potem
+ * będzie już sprawą Live Componentu, nie kontrolera.
  *
  * Logujemy przez `loginUser()`, a nie formularzem: przedmiotem testu jest autoryzacja, nie
  * uwierzytelnianie (formularz i stateless CSRF mają własne zachowanie, opisane w CLAUDE.md).
@@ -226,6 +232,94 @@ class MailControllerTest extends WebTestCase {
         $this->assertResponseIsSuccessful();
         $this->assertSelectorTextContains('body', 'Sąsiad z tego samego konta');
         $this->assertSelectorTextNotContains('body', 'Mail z innego konta');
+    }
+
+    /**
+     * Ramka podglądu istnieje na OBU trasach — również na `/mail`, gdzie nie ma jeszcze czego
+     * pokazywać (etap 4.3c).
+     *
+     * To warunek działania nawigacji, a jego złamanie jest awarią CICHĄ: przy braku ramki (albo
+     * literówce w `id`) strona renderuje się bez zarzutu, a Turbo po prostu nie ma czego podmienić
+     * i klikanie przestaje działać. Żaden test treści tego nie zauważy, bo treść jest poprawna.
+     *
+     * Sprawdzamy `id`, a nie `data-turbo-frame` na linkach: `id` to kontrakt między kontrolerem
+     * a Turbo (musi być w KAŻDEJ odpowiedzi, do której celuje link), natomiast atrybut na linku
+     * jest szczegółem szablonu listy, który w 4.4 przejmuje Live Component.
+     */
+    public function testRamkaPodgladuJestObecnaNaObuTrasach(): void {
+        $account = $this->givenAccount();
+        $user    = $this->givenUser('user@example.com', $account);
+        $message = $this->givenMessage($account, 'Wiadomość');
+
+        $this->client->loginUser($user);
+
+        $this->client->request('GET', '/mail');
+        $this->assertResponseIsSuccessful();
+        $this->assertSelectorExists('turbo-frame#message', 'Bez ramki na `/mail` klik w listę nie ma czego podmienić');
+
+        $this->client->request('GET', '/mail/' . $message->getId());
+        $this->assertResponseIsSuccessful();
+        $this->assertSelectorExists('turbo-frame#message');
+    }
+
+    /**
+     * Linki listy celują w ramkę, KTÓRA W TEJ SAMEJ ODPOWIEDZI ISTNIEJE (etap 4.3c).
+     *
+     * Kontrakt z Turbo ma dwa końce — `id` ramki i `data-turbo-frame` na linku — i awaria każdego
+     * z nich jest tak samo cicha: strona renderuje się bez zarzutu, tylko klik przestaje podmieniać
+     * podgląd (bez atrybutu Turbo przeładuje całą stronę, przy niezgodnej wartości nie znajdzie celu
+     * i nie zrobi nic). Test na sam `id` pilnuje jednego końca, ten pilnuje ZGODNOŚCI obu.
+     *
+     * Nazwy ramki NIE wpisujemy tu z palca: odczytujemy ją z linku i szukamy w dokumencie. Dzięki
+     * temu asercja nie utrwala stałej `message` w drugim miejscu i przeżyje 4.4, gdzie te same linki
+     * renderuje Live Component — zmiana nazwy ramki w obu plikach naraz ma zostać zielona, a rozjazd
+     * między nimi czerwony.
+     */
+    public function testLinkiListyCelujaWIstniejacaRamke(): void {
+        $account = $this->givenAccount();
+        $user    = $this->givenUser('user@example.com', $account);
+        $this->givenMessage($account, 'Wiadomość na liście');
+
+        $this->client->loginUser($user);
+        $crawler = $this->client->request('GET', '/mail');
+
+        $this->assertResponseIsSuccessful();
+
+        $link = $crawler->filter('main a[href*="/mail/"]')->first();
+        $this->assertGreaterThan(0, $link->count(), 'Lista ma zawierać link do wiadomości');
+
+        $target = $link->attr('data-turbo-frame');
+        $this->assertNotNull($target, 'Link wiadomości bez `data-turbo-frame` przeładuje całą stronę zamiast ramki');
+        $this->assertSelectorExists(
+            sprintf('turbo-frame#%s', $target),
+            sprintf('Link celuje w ramkę "%s", której nie ma w odpowiedzi — klik nie znajdzie celu', $target),
+        );
+    }
+
+    /**
+     * Wejście prosto na `/mail/{id}` oddaje PEŁNE trzy regiony, a nie sam fragment podglądu
+     * (etap 4.3c/4.3d).
+     *
+     * Świadomie NIE renderujemy skróconej odpowiedzi po nagłówku `Turbo-Frame` — Turbo wycina
+     * ramkę z pełnej strony samo, a pełna odpowiedź jest warunkiem działania bez JS-u: zakładki,
+     * odświeżenia (F5) i `wstecz` po `data-turbo-action="advance"` trafiają tu BEZ tego nagłówka
+     * i muszą dostać kompletną skrzynkę. Test pilnuje, żeby optymalizacja transferu nie wkradła
+     * się później i nie zamieniła deep linku w goły fragment.
+     */
+    public function testDeepLinkOddajePelneTrzyRegionyNieSamFragment(): void {
+        $account = $this->givenAccount('Skrzynka testowa');
+        $user    = $this->givenUser('user@example.com', $account);
+        $message = $this->givenMessage($account, 'Otwierana wiadomość');
+
+        $this->client->loginUser($user);
+        $this->client->request('GET', '/mail/' . $message->getId());
+
+        $this->assertResponseIsSuccessful();
+        $this->assertSelectorTextContains('h1', 'Otwierana wiadomość');
+        $this->assertSelectorExists('turbo-frame#message');
+        // Panel kont i nagłówek listy — regiony, których sam fragment ramki by nie zawierał.
+        $this->assertSelectorTextContains('body', 'Skrzynka testowa');
+        $this->assertSelectorExists('main aside');
     }
 
     /**

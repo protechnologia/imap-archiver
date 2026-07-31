@@ -9,6 +9,12 @@
   przewija, a blok `main` dostaje całą resztę i sam zarządza swoim przewijaniem. `min-h-0`
   na `main` jest konieczne — bez niego dziecko flexa ma `min-height: auto`, rozpycha rodzica
   i wewnętrzne `overflow-y-auto` nigdy się nie uruchamia (klasyczna pułapka flex/grid).
+
+  Linki tego nagłówka (panel admina, wylogowanie, logo) NIE potrzebują `target="_top"`, mimo że
+  wychodzą poza moduł poczty: leżą POZA `<turbo-frame>`, a taki link celuje domyślnie w całą
+  stronę. Atrybut byłby tu martwym kodem sugerującym nieistniejące zagrożenie. Uwaga na przyszłość:
+  reguła odwraca się dla linków WEWNĄTRZ ramki podglądu (załączniki w 4.6, treść maila w 4.5) —
+  tam brak `target="_top"` wciągnąłby cudzą stronę do prawej kolumny.
 #}
 {% extends 'base.html.twig' %}
 

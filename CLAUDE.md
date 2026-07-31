@@ -227,20 +227,83 @@ mieszkają w sekcjach **Architektura**, **Model danych**, **Konfiguracja i sekre
           ➜ zweryfikowane: klasy skompilowane do `var/tailwind/app.built.css`, struktura kolumn
           w renderze zgodna, 117 testów zielonych. UWAGA: po dołożeniu nowych klas trzeba puścić
           `tailwind:build` (albo `--watch` na czas pracy nad stylami).
-    - [ ] **4.3c — Turbo Frames.** Regiony w `<turbo-frame>`, linki listy celują w ramkę podglądu
-          (`data-turbo-frame`), a nawigacja wychodząca poza moduł (panel admina, wylogowanie) ma
-          `target="_top"` — inaczej cała aplikacja wyląduje w środkowej kolumnie. Punkt kontrolny:
-          klik w wiadomość przeładowuje TYLKO prawy panel.
-    - [ ] **4.3d — adres URL, wstecz i deep link.** `data-turbo-action="advance"` przy przejściu
-          lista → podgląd, żeby adres się zmieniał, a `wstecz`/`odśwież` działały. Warunek konieczny:
-          wejście prosto na `/mail/{id}` musi wyrenderować PEŁNE trzy panele — czyli ta sama akcja
-          obsługuje dwa tryby (samodzielny i w ramce), rozpoznawane po nagłówku `Turbo-Frame`.
-    - [ ] **4.3e — testy funkcjonalne pod nowy layout.** Istniejące asercje z 4.2 wiszą na treści
-          `body` i po przebudowie szablonów wymagają dostrojenia. Dochodzą dwa nowe przypadki:
-          żądanie ramki oddaje sam fragment (nie całą stronę), a deep link do wiadomości renderuje
-          komplet paneli. Autoryzacja (403/404) ma zachowywać się identycznie w obu trybach.
-  - [ ] **4.4** — Live Component `MailList` zagnieżdżony WEWNĄTRZ ramki listy: `query`/`page`
-        jako writable `LiveProp` (traktowane jak input), `accountId` non-writable (podpisany).
+    - [x] **4.3c — Turbo Frames.** **JEDNA ramka, tylko na podgląd** (`<turbo-frame id="message">`),
+          nie „każdy region w swojej ramce". Powód: **ramka PRZEŁADOWUJE zawartość, nie morfuje**
+          (morf jest zarezerwowany dla odświeżenia TEGO SAMEGO adresu i akcji `refresh` w Turbo
+          Stream — `refresh="morph"` przy nawigacji Drive nie działa). Ramka wokół listy resetowałaby
+          więc jej przewinięcie przy KAŻDYM kliknięciu w wiadomość, czyli odtwarzała dokładnie tę
+          wadę, dla której 4.3c powstało. Podgląd i tak jest wymieniany w całości — jemu
+          przeładowanie nie szkodzi.
+          **Podział pracy między mechanizmy:** klik w wiadomość → ramka; klik w konto → pełna
+          nawigacja Turbo Drive (zmienia wszystkie trzy regiony, a **jeden link umie zaadresować
+          tylko jedną ramkę** — `data-turbo-frame` przyjmuje jeden `id`); szukanie i paginacja →
+          Live Component w 4.4 (renderuje się MORFEM, zachowuje przewinięcie i fokus — dlatego lista
+          nie może być w ramce). Turbo Streamy odrzucone: nie zmieniają adresu, a linki `GET`
+          domyślnie ich nie żądają.
+          **`display` na ramce warunkowy, nie sklejony:** `<turbo-frame>` jest elementem nieznanym
+          przeglądarce (`display: inline`), więc jawna klasa jest konieczna dla łańcucha `min-h-0`
+          + `overflow-y-auto` — ale bezwarunkowe `block` zderzałoby się z `hidden` na wąskim ekranie
+          i o zwycięzcy decydowałaby kolejność w arkuszu. Stąd `{{ message ? 'block' : 'hidden md:block' }}`.
+          `data-turbo-action="advance"` wchodzi TU, nie w 4.3d — bez niego ramka gubi adres, więc
+          `wstecz` i F5 działałyby gorzej niż przed 4.3c.
+          `target="_top"` **nie jest potrzebny** w nagłówku `layout.html.twig`: te linki leżą POZA
+          ramką, a taki link celuje domyślnie w całą stronę. Reguła odwraca się dla linków WEWNĄTRZ
+          podglądu (treść maila 4.5, załączniki 4.6) — tam jego brak wciągnie cudzą stronę do kolumny.
+          **ŚWIADOMA LUKA (4.3c–4.3e):** klik nie przestawia podświetlenia wiersza, bo lista nie
+          dostaje nowego `message`. Przy pełnym renderze (F5, deep link, zmiana konta) działa
+          poprawnie. Nie łatamy tego JS-em ani Streamem — wraca w 4.4 z `LiveProp`, tym samym
+          sposobem „z danych", tylko morfem.
+          ➜ zweryfikowane: ramka renderuje się na obu trasach, `<main>` ma nadal TROJE dzieci
+          (siatka gridu nietknięta), klasy `display` rozdzielone poprawnie, 117 testów zielonych,
+          `composer cs` czysty.
+    - [ ] **4.3d — weryfikacja zachowania Turbo w PRZEGLĄDARCE HEADLESS.** Kodu produkcyjnego do
+          napisania nie ma (`advance` wszedł w 4.3c) — to punkt czysto weryfikacyjny, ale wymaga
+          NOWEGO NARZĘDZIA: wszystkiego poniżej nie da się sprawdzić ani `WebTestCase`, ani curl-em,
+          bo Turbo to JS, a oba widzą wyłącznie HTML wysłany przez serwer. Stąd headless (Playwright
+          albo `symfony/panther`) — do postawienia w tym podpunkcie, bo od 4.4 (Live Components)
+          coraz więcej zachowania przenosi się na klienta i zostanie poza zasięgiem obecnego zestawu.
+          Środowisko dziś przeglądarki nie ma; instalacja to część zadania.
+          **Do zmierzenia:**
+          1. klik przeładowuje TYLKO prawą kolumnę (jedno żądanie w zakładce Sieć, panel kont i lista
+             nietknięte);
+          2. **przewinięcie listy przeżywa klik** — główny zysk z 4.3c, wciąż niepotwierdzony;
+             wymaga listy dłuższej niż wysokość kolumny (60+ wiadomości, dev ma dziś 3);
+          3. adres, `wstecz`, F5 — CZĘŚCIOWO POTWIERDZONE ręcznie: po pełnym wejściu na `/mail/{id}`
+             adres zmienia się poprawnie, a `wstecz` wraca do właściwej wiadomości Z zaznaczeniem
+             (Turbo odtwarza snapshot całej strony, nie robi żądania);
+          4. linki nagłówka (panel admina, wylogowanie, logo) nie wpadają do kolumny podglądu.
+          Renderowania samego fragmentu po nagłówku `Turbo-Frame` **nie robimy** — to optymalizacja
+          transferu, a pełna odpowiedź jest warunkiem działania bez JS-u.
+          **Zmierzone ograniczenie:** w ciągu klik → klik → `wstecz` zaznaczenie wiersza NIE nadąża
+          za podglądem — snapshot w historii ma listę z pierwszego kliknięcia i podgląd z drugiego.
+          Nierozstrzygnięte, czy podświetlenie znika zupełnie, czy zostaje na złym wierszu; to
+          decyduje o leku w 4.4 (brak → wystarczy `LiveProp` z ID, bo komponent weźmie stan z adresu;
+          rozjazd → potrzebny dodatkowo nasłuch `popstate`). Trzecia droga to świadoma zgoda na
+          chwilową niespójność. Przeniesienie ID wiadomości do query stringa odrzucone — łamałoby
+          podział „ścieżka vs query" z 4.3a.
+    - [x] **4.3e — testy funkcjonalne pod ramki.** Wyszło MNIEJ pracy, niż zakładał plan: dostrajanie
+          asercji z 4.2 okazało się zbędne, bo ramka zastąpiła `<section>` w tym samym miejscu i treść
+          `body` się nie zmieniła (117 testów przeszło bez jednej poprawki). Przypadek „żądanie ramki
+          oddaje sam fragment" **skreślony** — świadomie renderujemy zawsze pełną stronę (patrz 4.3d).
+          Dołożone trzy. Kontrakt z Turbo ma DWA KOŃCE (`id` ramki i `data-turbo-frame` na linku)
+          i awaria każdego jest tak samo cicha — strona renderuje się bez zarzutu, tylko klik
+          przestaje podmieniać podgląd. Stąd: ramka `#message` obecna na OBU trasach, linki listy
+          celujące w ramkę ISTNIEJĄCĄ w tej samej odpowiedzi (nazwa odczytana z linku, nie wpisana
+          z palca — asercja przeżyje 4.4 i zmianę nazwy w obu plikach naraz), deep link oddający
+          komplet trzech regionów. Zaznaczenia wiersza NIE testujemy (luka do 4.4). `WebTestCase`
+          nie wykonuje JS-u, więc sprawdzamy wyłącznie, czy serwer wysyła HTML, na którym Turbo
+          MOŻE zadziałać — nie samo zachowanie Turbo.
+          ➜ 120 testów, 280 asercji. Czułość potwierdzona eksperymentalnie: test spójności pada we
+          wszystkich trzech scenariuszach (brak atrybutu, literówka w atrybucie, literówka w `id`),
+          każdy z komunikatem wskazującym przyczynę.
+  - [ ] **4.4** — Live Component `MailList` w środkowej kolumnie: `query`/`page` jako writable
+        `LiveProp` (traktowane jak input), `accountId` non-writable (podpisany). Kolumna listy
+        **nie jest ramką** (uzasadnienie w 4.3c) — komponent stoi obok ramki podglądu, nie w niej,
+        więc nawigacja do wiadomości go nie dotyka i jego stan żyje nieprzerwanie.
+        Dochodzi `LiveProp` z ID otwartej wiadomości: to on domyka lukę z 4.3c i przywraca
+        podświetlenie wiersza — morfem, z danych, bez JS-a.
+        Uwaga na zmianę konta: to pełna nawigacja Drive, więc komponent jest niszczony i budowany
+        od nowa — stan musi dać się odtworzyć z adresu (`LiveProp(url: true)`), a nie być przenoszony.
   - [ ] **4.5** — render treści maila. UWAGA: `Message.body` to tylko ziarno tekstowe
         (`MessageFactory::extractBody()` preferuje `text`, HTML jest fallbackiem) — pełny HTML
         czytamy z `.eml` przez `ArchiveStorage`. HTMLPurifier → `<iframe sandbox>` bez
@@ -461,6 +524,22 @@ Eksploratora Windows pod `\\wsl.localhost\dev-edor-gw\root\projects\imap-archive
 - Testy funkcjonalne wypisują na stderr `[error] Uncaught PHP Exception … Access Denied` przy
   sprawdzaniu 403/404. To NIE jest błąd testu, tylko logger aplikacji — przypadki oczekujące
   403/404 zawsze tak hałasują.
+- **Turbo Frames PRZEŁADOWUJĄ, Live Components MORFUJĄ — i to decyduje, co wolno owinąć ramką.**
+  Ramka wymienia zawartość (stare węzły giną), więc gubi stan DOM: pozycję przewinięcia, fokus,
+  zaznaczenie w polu. Morf zachowuje to wszystko, ale odpala się TYLKO przy odświeżeniu tego samego
+  adresu (`<meta name="turbo-refresh-method" content="morph">`) i przy akcji `refresh` w Turbo
+  Stream — `<turbo-frame refresh="morph">` przy zwykłej nawigacji Drive NIE działa (Idiomorph jest
+  wbudowany w Turbo 8, brakuje wyzwalacza, nie biblioteki). Stąd reguła: **ramką owijamy region,
+  który i tak wymieniamy w całości** (podgląd), a nie taki, w którym użytkownik buduje stan (lista).
+  Do tego **jeden link = jedna ramka** (`data-turbo-frame` bierze jeden `id`), a linki `GET`
+  domyślnie nie żądają Turbo Streamów (potrzebny jawny `data-turbo-stream`).
+- **`<turbo-frame>` to element NIEZNANY przeglądarce, czyli `display: inline`.** Wstawiony w grid
+  albo flex psuje układ po cichu: nie dostaje ścieżki gridu jak `<div>`, a w łańcuchu wysokości
+  (`min-h-0` + `overflow-y-auto`) przerywa przekazywanie wysokości i paski przewijania znikają.
+  Zawsze nadać jawny `display`. Uwaga na konflikt klas: bezwarunkowe `block` obok warunkowego
+  `hidden` ustawia tę samą właściwość i o zwycięzcy decyduje kolejność w arkuszu — dawać JEDEN
+  wariant `display` na stan (`{{ warunek ? 'block' : 'hidden md:block' }}`). Jeśli ramka miałaby
+  objąć więcej niż jedną kolumnę gridu, potrzebny jest `display: contents` (klasa `contents`).
 - Stateless CSRF (config/packages/csrf.yaml): formularze renderują token jako literał
   `csrf-token` (JS go podmienia w przeglądarce). Walidacja przechodzi, gdy żądanie jest
   same-origin (nagłówek `Origin`/`Referer` zgodny z hostem) **i** w POST jest pole tokenu

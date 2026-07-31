@@ -48,11 +48,20 @@
 {% else %}
     <ul class="divide-y divide-slate-100">
         {% for item in page.items %}
-            {# Aktywny wiersz poznajemy po oglądanej wiadomości — po włączeniu ramek w 4.3c lista
-               zostaje na miejscu, a zmienia się tylko prawy panel, więc podświetlenie musi
-               wynikać z danych, nie z JS-a. #}
+            {# Aktywny wiersz poznajemy po oglądanej wiadomości, czyli Z DANYCH — nie z JS-a.
+
+               ŚWIADOMA LUKA NA 4.3c–4.3e: klik w wiadomość przeładowuje tylko ramkę `message`,
+               więc lista nie dostaje nowego `message` i podświetlenie zostaje na poprzednim
+               wierszu do najbliższego pełnego renderu (odświeżenie, deep link, zmiana konta —
+               tam działa poprawnie). Nie łatamy tego JS-em ani Turbo Streamem, bo w 4.4 lista
+               staje się Live Componentem: dostanie ID otwartej wiadomości jako `LiveProp`
+               i przestawi klasę sama, morfem, po stronie serwera — czyli tym samym sposobem
+               co teraz, tylko bez pełnego przeładowania. #}
             <li class="{{ message and message.id == item.id ? 'bg-slate-100' : 'hover:bg-slate-50' }}">
-                <a href="{{ path('app_mail_show', navParams|merge({id: item.id})) }}" class="block px-3 py-2">
+                <a href="{{ path('app_mail_show', navParams|merge({id: item.id})) }}"
+                   data-turbo-frame="message"
+                   data-turbo-action="advance"
+                   class="block px-3 py-2">
                     <span class="flex items-baseline justify-between gap-2">
                         <span class="truncate text-sm font-medium text-slate-900">
                             {{ item.subject|default('(bez tematu)') ?: '(bez tematu)' }}
