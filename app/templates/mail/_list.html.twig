@@ -1,95 +1,22 @@
 {#
-  Środkowy region: lista wiadomości (etapy 4.3a i 4.3b).
+  Środkowy region skrzynki — od 4.4 tylko wywołanie Live Componentu `MailList`.
 
-  Zawężenie do kont zrobiło już repozytorium — tu tylko renderujemy `page.items`. W 4.4 wnętrze
-  tego partiala przejmie Live Component `MailList` (szukanie i paginacja jako `LiveProp`),
-  dlatego linki paginacji celowo NIOSĄ aktualne `account`: stan widoku ma mieścić się w adresie.
+  Partial zostaje na miejscu (zamiast wołać komponent wprost z `index.html.twig`), żeby układ
+  trzech regionów czytało się jednakowo: każdy region to jeden `include`. Cała treść listy —
+  nagłówek, szukanie, wiersze, paginacja — mieszka w `templates/components/MailList.html.twig`.
 
-  Nagłówek i paginacja są `sticky` w obrębie przewijanej kolumny — przy 50 wiadomościach na
-  stronie inaczej trzeba by skrolować na sam dół, żeby przejść dalej.
+  `accountId` i `messageId` przekazujemy jako WARTOŚCI, nie encje: `LiveProp` musi dać się
+  odesłać w żądaniu komponentu, a poza tym `accountId` jest non-writable i podpisany. Komponent
+  i tak nie ufa mu na słowo — pyta `MailAccountRepository`, tak samo jak kontroler.
+
+  `accounts` idzie osobno, bo służy wyłącznie do wyświetlenia (pasek kont na wąskim ekranie)
+  i nie jest stanem komponentu. Wybranego konta NIE przekazujemy jako encji — komponent
+  wyprowadza je z `accountId`, żeby ta sama informacja nie istniała w dwóch postaciach.
 #}
-{% set navParams = selectedAccount ? {account: selectedAccount.id} : {} %}
-
-<header class="sticky top-0 z-10 border-b border-slate-200 bg-white/95 backdrop-blur">
-    <div class="flex items-baseline justify-between px-3 py-2">
-        <h2 class="truncate font-medium text-slate-900">{{ selectedAccount ? selectedAccount.label : 'Wszystkie konta' }}</h2>
-        <span class="shrink-0 pl-2 text-xs text-slate-500">{{ page.total }}</span>
-    </div>
-
-    {# Poniżej `lg` panel kont jest schowany, a jest JEDYNYM sposobem zmiany konta — bez tego
-       paska zmiana skrzynki na wąskim ekranie wymagałaby ręcznej edycji adresu. Pokazujemy go
-       przy KAŻDEJ niepustej liście kont, tak samo jak panel po lewej: przy jednym koncie nie ma
-       wprawdzie czego przełączać, ale widać, w której skrzynce się jest, i nie trzeba pamiętać
-       o wyjątku „na wąskim ekranie z jednym kontem panel po prostu znika". #}
-    {% if accounts is not empty %}
-        <div class="flex gap-1 overflow-x-auto border-t border-slate-100 px-3 py-2 text-xs lg:hidden">
-            <a href="{{ path('app_mail_index') }}"
-               class="shrink-0 rounded-full px-2.5 py-1 {{ selectedAccount is null ? 'bg-slate-900 font-medium text-white' : 'text-slate-600 ring-1 ring-slate-300 hover:bg-slate-100' }}">
-                Wszystkie
-            </a>
-            {% for account in accounts %}
-                <a href="{{ path('app_mail_index', {account: account.id}) }}"
-                   class="shrink-0 max-w-40 truncate rounded-full px-2.5 py-1 {{ selectedAccount and selectedAccount.id == account.id ? 'bg-slate-900 font-medium text-white' : 'text-slate-600 ring-1 ring-slate-300 hover:bg-slate-100' }}">
-                    {{ account.label }}
-                </a>
-            {% endfor %}
-        </div>
-    {% endif %}
-</header>
-
-{% if page.items is empty %}
-    <div class="px-3 py-10 text-center text-sm text-slate-500">
-        {% if selectedAccount %}
-            Na koncie „{{ selectedAccount.label }}" nie ma jeszcze zaimportowanych wiadomości.
-        {% else %}
-            Brak zaimportowanych wiadomości.
-        {% endif %}
-    </div>
-{% else %}
-    <ul class="divide-y divide-slate-100">
-        {% for item in page.items %}
-            {# Aktywny wiersz poznajemy po oglądanej wiadomości, czyli Z DANYCH — nie z JS-a.
-
-               ŚWIADOMA LUKA NA 4.3c–4.3e: klik w wiadomość przeładowuje tylko ramkę `message`,
-               więc lista nie dostaje nowego `message` i podświetlenie zostaje na poprzednim
-               wierszu do najbliższego pełnego renderu (odświeżenie, deep link, zmiana konta —
-               tam działa poprawnie). Nie łatamy tego JS-em ani Turbo Streamem, bo w 4.4 lista
-               staje się Live Componentem: dostanie ID otwartej wiadomości jako `LiveProp`
-               i przestawi klasę sama, morfem, po stronie serwera — czyli tym samym sposobem
-               co teraz, tylko bez pełnego przeładowania. #}
-            <li class="{{ message and message.id == item.id ? 'bg-slate-100' : 'hover:bg-slate-50' }}">
-                <a href="{{ path('app_mail_show', navParams|merge({id: item.id})) }}"
-                   data-turbo-frame="message"
-                   data-turbo-action="advance"
-                   class="block px-3 py-2">
-                    <span class="flex items-baseline justify-between gap-2">
-                        <span class="truncate text-sm font-medium text-slate-900">
-                            {{ item.subject|default('(bez tematu)') ?: '(bez tematu)' }}
-                        </span>
-                        <span class="shrink-0 text-xs tabular-nums text-slate-500">
-                            {{ item.date ? item.date|date('Y-m-d H:i') : '— brak daty' }}
-                        </span>
-                    </span>
-                    <span class="mt-0.5 flex items-baseline justify-between gap-2 text-xs text-slate-500">
-                        <span class="truncate">{{ item.fromName ?: item.fromEmail }}</span>
-                        <span class="shrink-0 tabular-nums">{{ item.size|bytes }}{% if item.hasAttachments %} <span title="Załączniki">📎</span>{% endif %}</span>
-                    </span>
-                </a>
-            </li>
-        {% endfor %}
-    </ul>
-
-    {% if page.pages > 1 %}
-        <nav class="sticky bottom-0 flex items-center justify-between border-t border-slate-200 bg-white/95 px-3 py-2 text-xs backdrop-blur">
-            {% if page.page > 1 %}
-                <a href="{{ path('app_mail_index', navParams|merge({page: page.page - 1})) }}"
-                   class="rounded px-2 py-1 font-medium text-slate-700 ring-1 ring-slate-300 hover:bg-slate-100">Poprzednia</a>
-            {% else %}<span></span>{% endif %}
-            <span class="tabular-nums text-slate-500">{{ page.page }} z {{ page.pages }}</span>
-            {% if page.page < page.pages %}
-                <a href="{{ path('app_mail_index', navParams|merge({page: page.page + 1})) }}"
-                   class="rounded px-2 py-1 font-medium text-slate-700 ring-1 ring-slate-300 hover:bg-slate-100">Następna</a>
-            {% else %}<span></span>{% endif %}
-        </nav>
-    {% endif %}
-{% endif %}
+{# UWAGA: składnia `<twig:…>` NIE dopuszcza spacji wokół `=` — wyrównanie atrybutów w kolumnie
+   wywraca parser („Expected "=" after :accountId"). Stąd zapis bez odstępów. #}
+<twig:MailList
+    :accountId="selectedAccount ? selectedAccount.id : null"
+    :messageId="message ? message.id : null"
+    :accounts="accounts"
+/>

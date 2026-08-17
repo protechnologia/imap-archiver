@@ -1,0 +1,157 @@
+{#
+  Środkowa kolumna skrzynki: lista wiadomości jako Live Component (etap 4.4).
+
+  GDZIE TO SIEDZI — trzy regiony z `mail/index.html.twig`:
+
+    <main> grid ────────────────────────────────────────────────────────────┐
+    │ <aside>          │ <section>              │ <turbo-frame id="message">│
+    │ _accounts        │  ┌──────────────────┐  │                           │
+    │                  │  │ TEN SZABLON      │  │  _message.html.twig       │
+    │ Konto A          │  │ ──────────────── │  │                           │
+    │ Konto B  ← pełna │  │ nagłówek + licznik│ │  podgląd wiadomości       │
+    │            Drive │  │ pole szukania    │  │                           │
+    │                  │  │ ---------------- │  │  ↑ RAMKA: przeładowuje,   │
+    │                  │  │ wiersz           │  │    wymieniana w całości   │
+    │                  │  │ wiersz  ← klik ──┼──┼──┘ (klik celuje tutaj)    │
+    │                  │  │ wiersz           │  │                           │
+    │                  │  │ ---------------- │  │                           │
+    │                  │  │ paginacja        │  │                           │
+    │                  │  └──────────────────┘  │                           │
+    └──────────────────┴────────────────────────┴───────────────────────────┘
+                          ↑ KOMPONENT: morfuje, NIE jest ramką
+
+  Klik w wiersz to nawigacja Turbo: ramka dostaje podgląd, `advance` wpisuje `/mail/42` do adresu,
+  a klasę aktywnego wiersza przestawia kontroler Stimulusa — lista NIE jest przerysowywana, więc
+  zachowuje przewinięcie i wpisaną frazę.
+
+  Komponent NIE JEST w ramce (ani własnej, ani podglądu): morf podmienia wyłącznie to, co się
+  zmieniło, więc zachowuje przewinięcie listy i fokus w polu szukania. Ramka przeładowuje
+  zawartość i odebrałaby dokładnie tę zaletę — pełne „dlaczego" w Gotchas.
+
+  Wysokość i przewijanie kolumny ustawia `<section>` w `index.html.twig` (`min-h-0` +
+  `overflow-y-auto`), więc TU ich nie powtarzamy — inaczej powstałby drugi pasek przewijania
+  wewnątrz pierwszego.
+#}
+
+
+<div {{ attributes.defaults({class: 'flex flex-col'}) }}>
+    <header class="sticky top-0 z-10 border-b border-slate-200 bg-white/95 backdrop-blur">
+        <div class="flex items-baseline justify-between px-3 py-2">
+            <h2 class="truncate font-medium text-slate-900">{{ selectedAccount ? selectedAccount.label : 'Wszystkie konta' }}</h2>
+            <span class="shrink-0 pl-2 text-xs tabular-nums text-slate-500">{{ page.total }}</span>
+        </div>
+
+        {# `data-model` wystarcza SAMO — kontroler live nasłuchuje na `[data-model]`, a od wersji
+           2.3 `data-action="live#update"` na polu formularza jest wprost błędem. `debounce(300)`
+           zbiera znaki, żeby żądanie nie leciało po każdym naciśnięciu klawisza. #}
+        <div class="px-3 pb-2">
+            <input type="search"
+                   value="{{ query }}"
+                   data-model="debounce(300)|query"
+                   placeholder="Szukaj w temacie i nadawcy…"
+                   class="w-full rounded border border-slate-300 px-2 py-1 text-sm placeholder:text-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-300">
+        </div>
+
+        {# Poniżej `lg` panel kont jest schowany, a jest JEDYNYM sposobem zmiany konta — bez tego
+           paska zmiana skrzynki na wąskim ekranie wymagałaby ręcznej edycji adresu. Te linki są
+           pełną nawigacją Drive (zmieniają wszystkie trzy regiony), więc NIE są akcjami live. #}
+        {% if accounts is not empty %}
+            <div class="flex gap-1 overflow-x-auto border-t border-slate-100 px-3 py-2 text-xs lg:hidden">
+                <a href="{{ path('app_mail_index') }}"
+                   class="shrink-0 rounded-full px-2.5 py-1 {{ selectedAccount is null ? 'bg-slate-900 font-medium text-white' : 'text-slate-600 ring-1 ring-slate-300 hover:bg-slate-100' }}">
+                    Wszystkie
+                </a>
+                {% for account in accounts %}
+                    <a href="{{ path('app_mail_index', {account: account.id}) }}"
+                       class="shrink-0 max-w-40 truncate rounded-full px-2.5 py-1 {{ selectedAccount and selectedAccount.id == account.id ? 'bg-slate-900 font-medium text-white' : 'text-slate-600 ring-1 ring-slate-300 hover:bg-slate-100' }}">
+                        {{ account.label }}
+                    </a>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </header>
+
+    {% if page.items is empty %}
+        <div class="px-3 py-10 text-center text-sm text-slate-500">
+            {% if query %}
+                Brak wiadomości pasujących do „{{ query }}".
+            {% elseif selectedAccount %}
+                Na koncie „{{ selectedAccount.label }}" nie ma jeszcze zaimportowanych wiadomości.
+            {% else %}
+                Brak zaimportowanych wiadomości.
+            {% endif %}
+        </div>
+    {% else %}
+        {# BEZ separatorów (`divide-y`) i BEZ `flex-1`: wiersze rozdziela odstęp i tło pod kursorem,
+           a zaznaczony niesie własny pasek — kreski dokładały trzeci sygnał do tej samej roli.
+           `flex-1` rozciągało dodatkowo listę na całą kolumnę, zostawiając pustkę pod ostatnią
+           wiadomością. #}
+        <ul data-controller="active-row">
+            {% for item in page.items %}
+                {# Podświetlenie ma DWA źródła i to jest świadome:
+                     • przy renderze strony (deep link, F5, zmiana konta) daje je `messageId`
+                       z serwera — widać w klasie niżej;
+                     • przy nawigacji w obrębie listy (klik, `wstecz`, `dalej`) przestawia je
+                       Stimulus, bo podmieniana jest sama ramka podglądu i lista nie jest
+                       przerysowywana. Kontroler czyta ADRES, nie kliknięcie — inaczej po `wstecz`
+                       zaznaczenie zostawałoby na poprzednio klikniętym wierszu.
+
+                   Klik jest ZWYKŁĄ NAWIGACJĄ TURBO, bez akcji live. Przestawianie klasy po stronie
+                   serwera też działało, ale kontroler live po każdej odpowiedzi robi
+                   `history.replaceState()` i nadpisywał wpis dodany przez `advance` — `wstecz`
+                   gubił wtedy krok. Pełne „dlaczego" w `active_row_controller.js`. #}
+                {# Pasek zaznaczenia to LEWE OBRAMOWANIE obecne ZAWSZE, tylko przezroczyste na
+                   nieaktywnych wierszach — inaczej pojawienie się ramki przesuwałoby treść o 2 px
+                   przy każdym kliknięciu. Animujemy `border-color` i `background-color`, nie
+                   `border-width`, więc geometria listy jest stała.
+
+                   Kolor koniecznie przez `border-l-*`, NIE `border-*`: to drugie farbuje wszystkie
+                   cztery krawędzie naraz, więc każda kreska w wierszu przejmowałaby kolor
+                   zaznaczenia. #}
+                <li data-active-row-target="row"
+                    data-active-row-id-param="{{ item.id }}"
+                    class="border-l-2 transition-colors duration-200 {{ messageId == item.id ? 'border-l-blue-600 bg-blue-50' : 'border-l-transparent hover:bg-slate-50' }}">
+                    {# Bez `?account=`: kontroler wyprowadza konto Z SAMEJ WIADOMOŚCI, gdy parametru
+                       nie ma (`?? $message?->getAccount()`), więc niósłby tylko szum. Co gorsza
+                       migałby w pasku adresu — Turbo wpisywałoby `/mail/42?account=11`, a odpowiedź
+                       komponentu przywracała adres bez tego parametru. #}
+                    <a href="{{ path('app_mail_show', {id: item.id}) }}"
+                       data-turbo-frame="message"
+                       data-turbo-action="advance"
+                       class="block px-3 py-2">
+                        <span class="flex items-baseline justify-between gap-2">
+                            <span class="truncate text-sm font-medium text-slate-900">
+                                {{ item.subject|default('(bez tematu)') ?: '(bez tematu)' }}
+                            </span>
+                            <span class="shrink-0 text-xs tabular-nums text-slate-500">
+                                {{ item.date ? item.date|date('Y-m-d H:i') : '— brak daty' }}
+                            </span>
+                        </span>
+                        <span class="mt-0.5 flex items-baseline justify-between gap-2 text-xs text-slate-500">
+                            <span class="truncate">{{ item.fromName ?: item.fromEmail }}</span>
+                            <span class="shrink-0 tabular-nums">{{ item.size|bytes }}{% if item.hasAttachments %} <span title="Załączniki">📎</span>{% endif %}</span>
+                        </span>
+                    </a>
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
+    {% if page.pages > 1 %}
+        <nav class="sticky bottom-0 flex items-center justify-between border-t border-slate-200 bg-white/95 px-3 py-2 text-xs backdrop-blur">
+            {% if page.page > 1 %}
+                <button type="button"
+                        data-action="live#action"
+                        data-live-action-param="previousPage"
+                        class="rounded px-2 py-1 font-medium text-slate-700 ring-1 ring-slate-300 hover:bg-slate-100">Poprzednia</button>
+            {% else %}<span></span>{% endif %}
+            <span class="tabular-nums text-slate-500">{{ page.page }} z {{ page.pages }}</span>
+            {% if page.page < page.pages %}
+                <button type="button"
+                        data-action="live#action"
+                        data-live-action-param="nextPage"
+                        class="rounded px-2 py-1 font-medium text-slate-700 ring-1 ring-slate-300 hover:bg-slate-100">Następna</button>
+            {% else %}<span></span>{% endif %}
+        </nav>
+    {% endif %}
+</div>

@@ -151,50 +151,68 @@ class MailboxTurboTest extends BrowserTestCase {
     }
 
     /**
-     * ŚWIADOMA LUKA do 4.4: nawigacja ramkowa gubi podświetlenie wiersza, pełny render nie.
+     * Klik podświetla kliknięty wiersz — bez przeładowania listy (etap 4.4).
      *
-     * Klasa aktywnego wiersza liczy się z danych (`message.id == item.id` w `_list.html.twig`),
-     * ale klik podmienia WYŁĄCZNIE ramkę podglądu — lista zostaje ta sama, więc nigdy nie dostaje
-     * nowego `message`. Serwer renderuje ją poprawnie, tylko Turbo tę część odpowiedzi odrzuca.
+     * To DOMKNIĘCIE LUKI z 4.3: wtedy klik podmieniał wyłącznie ramkę podglądu, więc lista nigdy
+     * nie dostawała nowego `message` i podświetlenie znikało zupełnie (zmierzone w 4.3d — stąd
+     * wniosek, że wystarczy `LiveProp` z ID i nie trzeba nasłuchu `popstate`). Teraz klik robi
+     * dwie rzeczy naraz: Turbo wymienia ramkę, a akcja live ustawia `messageId` i komponent
+     * morfuje wiersz w miejscu.
      *
-     * ROZSTRZYGNIĘCIE 4.3d (plan dopuszczał dwa wyniki): podświetlenie ZNIKA ZUPEŁNIE — nie
-     * zostaje na poprzednim wierszu. Także po `wstecz`, bo snapshot w historii pochodzi ze stanu
-     * już pozbawionego klasy. Wniosek dla 4.4: wystarczy `LiveProp` z ID otwartej wiadomości,
-     * BEZ nasłuchu `popstate` — komponent odtworzy stan z adresu, a odtwarzać trzeba brak klasy,
-     * a nie rozjazd między wierszami.
-     *
-     * Test pilnuje OBU stron tej luki naraz. Gdy 4.4 ją domknie, pierwsza asercja zacznie padać
-     * — i to jest jej zadanie: ma wtedy zniknąć razem z luką, a nie zostać po cichu osłabiona.
+     * Sprawdzamy DRUGI wiersz, nie pierwszy: przy pierwszym indeks 0 mógłby wyjść przypadkiem
+     * (np. gdyby szablon podświetlał domyślnie początek listy), a 1 nie ma jak paść przypadkiem.
      */
-    public function testPodswietlenieWierszaGinieNaRamceAleDzialaPoPelnymRenderze(): void {
+    public function testKlikPodswietlaWlasciwyWiersz(): void {
         $this->givenMailbox(5);
         $this->loginAs('user@example.com');
 
         $this->browser->request('GET', '/mail');
-        $this->clickFirstMessage();
+
+        $this->assertSame(-1, $this->activeRowIndex(), 'Na wejściu bez wybranej wiadomości nic nie ma być podświetlone');
+
+        $this->clickMessage(1);
 
         $this->assertSame(
-            -1,
+            1,
             $this->activeRowIndex(),
-            'Podświetlenie po kliknięciu jednak działa — luka domknięta, ten test i opis w CLAUDE.md są do usunięcia',
+            'Podświetlenie nie trafiło na kliknięty wiersz — `messageId` nie doszedł do komponentu',
         );
+    }
 
-        // Ten sam adres, ale wpisany od nowa: serwer oddaje komplet trzech regionów i klasa wraca.
-        $current = $this->browser->getCurrentURL();
-        $this->browser->request('GET', $current);
+    /**
+     * Deep link i odświeżenie też podświetlają właściwy wiersz.
+     *
+     * Ta ścieżka działała już w 4.3 (pełny render oddaje komplet trzech regionów), ale po
+     * przeniesieniu listy do komponentu przechodzi zupełnie inaczej: `messageId` wjeżdża teraz
+     * jako `LiveProp` z `_list.html.twig`, a nie zmienną szablonu. Warto pilnować obu wejść —
+     * gdyby przekazanie się urwało, klik nadal by działał, a zakładka i F5 już nie.
+     */
+    public function testDeepLinkPodswietlaWlasciwyWiersz(): void {
+        $this->givenMailbox(5);
+        $this->loginAs('user@example.com');
 
-        $this->assertGreaterThanOrEqual(
-            0,
+        $this->browser->request('GET', '/mail');
+        $this->clickMessage(1);
+
+        // Ten sam adres wpisany od nowa — pełna nawigacja, komponent budowany od zera.
+        $this->browser->request('GET', $this->browser->getCurrentURL());
+
+        $this->assertSame(
+            1,
             $this->activeRowIndex(),
-            'Pełny render nie podświetla wiersza — to już nie luka Turbo, tylko błąd w `_list.html.twig`',
+            'Po pełnym renderze podświetlenie zniknęło — `messageId` nie dojechał z kontrolera do komponentu',
         );
     }
 
     /**
      * Numer podświetlonego wiersza listy albo -1, gdy żaden nie jest aktywny.
      *
-     * Świadomie po KLASIE, nie po `aria-current`: klasa jest dziś jedynym nośnikiem tego stanu
-     * (zob. `_list.html.twig`), więc test mierzy to, co widzi użytkownik.
+     * Rozpoznajemy po BRAKU `border-transparent`, a nie po kolorze tła: kolory zaznaczenia to
+     * decyzja wizualna, która może się zmienić (i zmieniła się już raz), a obecność paska po lewej
+     * jest samą definicją „ten wiersz jest aktywny". Test nie ma padać przez zmianę odcienia.
+     *
+     * Klasa jest dziś jedynym nośnikiem tego stanu (nie ma `aria-current`), więc mierzymy to,
+     * co widzi użytkownik.
      *
      * @return int Indeks od zera, np. 1 dla drugiego wiersza; -1 gdy brak podświetlenia
      */
@@ -203,7 +221,7 @@ class MailboxTurboTest extends BrowserTestCase {
             return (function () {
                 var rows = Array.prototype.slice.call(document.querySelectorAll('main ul li'));
                 for (var i = 0; i < rows.length; i++) {
-                    if (rows[i].className.indexOf('bg-slate-100') !== -1) {
+                    if (rows[i].className.indexOf('border-l-transparent') === -1) {
                         return i;
                     }
                 }
@@ -219,7 +237,16 @@ class MailboxTurboTest extends BrowserTestCase {
      * odpowiedź asynchronicznie i bez tego asercje czytałyby DOM sprzed podmiany.
      */
     private function clickFirstMessage(): void {
-        $this->browser->executeScript("document.querySelector('main ul a').click();");
+        $this->clickMessage(0);
+    }
+
+    /**
+     * Klika wiadomość o podanym numerze na liście i czeka na wypełniony podgląd.
+     *
+     * @param int $nth Indeks od zera, np. 1 dla drugiego wiersza
+     */
+    private function clickMessage(int $nth): void {
+        $this->browser->executeScript(sprintf("document.querySelectorAll('main ul a')[%d].click();", $nth));
         $this->browser->waitForVisibility('turbo-frame#message h1');
     }
 

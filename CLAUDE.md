@@ -85,8 +85,9 @@ Wielu użytkowników z dostępem do podglądu; jeden admin robi import i zarząd
   więc dodatkowy adres to drugi szablon i widok, który bez JS-u pokazuje goły fragment.
   Regiony siedzą w partialach `_accounts` / `_list` / `_message`.
 - **Adresowanie: wiadomość w ŚCIEŻCE, stan widoku w QUERY.** `/mail/{id}` to tożsamość zasobu,
-  `?account=67` i `?page=2` to stan — spójnie z tym, jak `LiveProp(url: true)` zapisuje stan
-  komponentu. `?account=` jest inputem użytkownika i przechodzi przez
+  `?account=67` to stan widoku. Numer strony i fraza szukania NIE trafiają do adresu (`LiveProp`
+  bez `url: true`): nie muszą przeżywać F5 ani zmiany konta, a każdy znak w polu dopisywałby wpis
+  do historii, przez co `wstecz` cofałby przez kolejne wersje frazy zamiast wrócić do wiadomości. `?account=` jest inputem użytkownika i przechodzi przez
   `MailAccountRepository::findOneForUser()`: cudze albo nieistniejące ID daje `null` i widok wraca
   do „wszystkie konta", nigdy do cudzej poczty.
 - **Turbo Frames** = nawigacja między regionami. **JEDNA ramka, tylko na podgląd**
@@ -97,7 +98,12 @@ Wielu użytkowników z dostępem do podglądu; jeden admin robi import i zarząd
 - **Live Component `MailList`** = reaktywność wewnątrz listy (szukaj/filtr/paginacja jako
   `LiveProp`). Stoi OBOK ramki podglądu, nie w niej i nie w ramce własnej: renderuje się morfem,
   więc zachowuje przewinięcie i fokus — owinięcie go ramką odebrałoby dokładnie tę zaletę.
-- **Stimulus** = drobne sprinkles (nawigacja klawiaturą, obsługa iframe).
+- **Stimulus** = drobne sprinkles (nawigacja klawiaturą, obsługa iframe) ORAZ stan czysto wizualny,
+  którego serwer nie musi znać. Podświetlenie aktywnego wiersza (`active_row_controller.js`) czyta
+  ADRES przy `turbo:frame-load`, więc obsługuje klik, `wstecz` i `dalej` jednakowo. Robienie tego
+  akcją Live Componentu jest KUSZĄCE I BŁĘDNE — powód w Gotchas („pasek adresu ma jednego
+  właściciela"). Cena: reguła „aktywny wiersz" jest w dwóch miejscach (Twig przy renderze strony,
+  Stimulus przy nawigacji w liście), dlatego klasy siedzą w stałych kontrolera.
 - **Kolumny przewijają się osobno, nie strona jako całość.** Warunek działania: `min-h-0` na
   elemencie z `overflow-y-auto` — element gridu/flexa ma domyślnie `min-height: auto` i bez tego
   rozpycha siatkę zamiast przyciąć zawartość, więc pasek przewijania nigdy się nie pojawia.
@@ -137,6 +143,13 @@ Zestaw wystartował przy etapie 4.2 (PHPUnit + `symfony/test-pack` + `dama/doctr
   settera `id`). Statyczne dane (surowe `.eml`) leżą obok, w `tests/Fixtures/eml/` — `tests/Fixtures/`
   to jedno miejsce na wszystko, z czego testy czerpią dane; klasa nazywa się `EntityFactory`, a nie
   `Fixtures`, żeby nie dublować nazwy katalogu.
+- **Live Component testujemy DWA RAZY, bo ma własną trasę HTTP.** Żądania komponentu idą na
+  `/_components/<Nazwa>`, więc kontroler i jego zawężenie dostępu w ogóle się nie wykonują — gdyby
+  komponent ufał podpisanemu `LiveProp` na słowo, byłoby to wejście do cudzej poczty przy zielonych
+  testach kontrolera. Stąd `tests/Functional/Component/` (reguła dostępu, przez `InteractsWithLive
+  Components` — UWAGA: `createLiveComponent()` bierze świeżego klienta z kontenera, więc zalogowanego
+  trzeba podać TRZECIM argumentem, inaczej leci „Access Denied") i `tests/Browser/` (reaktywność,
+  której `WebTestCase` nie zobaczy, bo żądania lecą JS-em).
 - **Zachowanie JS-a (Turbo, od 4.4 Live Components) tylko w PRZEGLĄDARCE** (`tests/Browser/`,
   `symfony/panther`). `WebTestCase` widzi wyłącznie HTML wysłany przez serwer — identyczny
   niezależnie od tego, czy Turbo działa — więc pilnuje co najwyżej KONTRAKTU (obecność ramki,
@@ -239,25 +252,28 @@ mieszkają w sekcjach **Architektura**, **Model danych**, **Konfiguracja i sekre
         i nie ma być w ramce; podświetlenie aktywnego wiersza po kliknięciu ZNIKA (potwierdzone
         pomiarem w 4.3d) i to `LiveProp` z ID ma je przywrócić.
         ➜ 125 testów, 295 asercji — w tym 5 w prawdziwej przeglądarce (`tests/Browser/`).
-  - [ ] **4.4** — Live Component `MailList` w środkowej kolumnie: `query`/`page` jako writable
-        `LiveProp` (traktowane jak input), `accountId` non-writable (podpisany). Kolumna listy
-        **nie jest ramką** (uzasadnienie w „Front — wzorzec" i Gotchas) — komponent stoi obok ramki
-        podglądu, nie w niej, więc nawigacja do wiadomości go nie dotyka i jego stan żyje nieprzerwanie.
-        Dochodzi `LiveProp` z ID otwartej wiadomości: to on domyka lukę z 4.3 i przywraca
-        podświetlenie wiersza — morfem, z danych, bez JS-a. **Pomiar z 4.3d przesądził, że to
-        WYSTARCZY: nasłuch `popstate` NIE jest potrzebny**, bo podświetlenie po kliknięciu znika
-        zupełnie (a nie zostaje na złym wierszu), więc komponentowi wystarczy odtworzyć stan z adresu.
-        Gdy to zadziała, `testPodswietlenieWierszaGinieNaRamceAleDzialaPoPelnymRenderze()` zacznie
-        padać — wtedy usunąć test razem z opisem luki, a nie osłabiać asercję.
-        Uwaga na zmianę konta: to pełna nawigacja Drive, więc komponent jest niszczony i budowany
-        od nowa — stan musi dać się odtworzyć z adresu (`LiveProp(url: true)`), a nie być przenoszony.
+  - [x] **4.4** — Live Component `MailList`: szukanie (`debounce(300)`) i paginacja w środkowej
+        kolumnie, bez przeładowania strony. Zawężenie kont przez `MailAccountRepository` — ten sam
+        `accessibleQueryBuilder()`, z którego czerpie kontroler.
+        Trwałe ustalenia mieszkają w sekcjach **Front — wzorzec**, **Testy — zasady** i **Gotchas**
+        (zwłaszcza „pasek adresu ma jednego właściciela"); uzasadnienia decyzji w historii gita.
+        **Co warto pamiętać przy 4.5–4.7:** podświetlenie wiersza robi Stimulus, nie komponent —
+        akcja live przy nawigacji Turbo wywołuje wyścig o pasek adresu; `LiveProp(url: true)`
+        świadomie nieużywane; dane do oglądania listy daje `app:dev:seed-messages`.
+        ➜ 136 testów, 323 asercje (było 125/295) — w tym 11 nowych, każdy z czułością potwierdzoną
+        wstrzykniętą regresją.
+        **Otwarte na 4.7:** `wstecz` przy paginacji gubi przewinięcie listy (Turbo przywraca
+        przewinięcie OKNA, nie wnętrza kolumny).
   - [ ] **4.5** — render treści maila. UWAGA: `Message.body` to tylko ziarno tekstowe
         (`MessageFactory::extractBody()` preferuje `text`, HTML jest fallbackiem) — pełny HTML
         czytamy z `.eml` przez `ArchiveStorage`. HTMLPurifier → `<iframe sandbox>` bez
         `allow-scripts`; blokada zdalnych obrazów (pixele śledzące).
   - [ ] **4.6** — załączniki: pobieranie bajtów wyciętych z `.eml` (metadane w DB ich nie mają),
         `Content-Disposition: attachment`, sanityzacja nazwy pliku, autoryzacja przez Voter.
-  - [ ] **4.7** — sprinkles Stimulus: nawigacja klawiaturą po liście, dopasowanie wysokości iframe.
+  - [ ] **4.7** — sprinkles Stimulus: nawigacja klawiaturą po liście, dopasowanie wysokości iframe,
+        **przywracanie przewinięcia listy przy `wstecz`** (zgłoszone w 4.4). Turbo przywraca
+        przewinięcie OKNA, a nasze kolumny przewijają się osobno — trzeba zapisać `scrollTop`
+        kolumny przed opuszczeniem strony (`turbo:before-cache`) i odtworzyć po powrocie.
 - [ ] Etap 5 — async (Messenger) + skala + progress. Przy włączaniu workera przejrzeć pod kątem
       stanu żądania także serwisy dołożone w etapie 4 (komponent `MailList`, Voter).
 - [ ] **Etap 5.5 — `app:doctor`: kontrola stanu instalacji po deployu.** Jedna komenda z kodem
@@ -321,6 +337,9 @@ docker compose exec php php bin/console app:imap:ping --account=<id> [--limit=N]
 
 # import (od etapu 3)
 docker compose exec php php bin/console app:archive:import --account=<id> --year=<rok>
+
+# zaślepki wiadomości do oglądania listy (od 4.4) — TYLKO dev, bez plików .eml (verified=false)
+docker compose exec php php bin/console app:dev:seed-messages [--count=120] [--account=<id>]
 
 # diagnostyka listy wiadomości (od etapu 4.1) — to samo zapytanie, co komponent listy
 docker compose exec php php bin/console app:mail:list --account=<id> [--query=fraza] [--page=N] [--per-page=N]
@@ -486,6 +505,17 @@ Eksploratora Windows pod `\\wsl.localhost\dev-edor-gw\root\projects\imap-archive
 - Testy funkcjonalne wypisują na stderr `[error] Uncaught PHP Exception … Access Denied` przy
   sprawdzaniu 403/404. To NIE jest błąd testu, tylko logger aplikacji — przypadki oczekujące
   403/404 zawsze tak hałasują.
+- **PASEK ADRESU MA JEDNEGO WŁAŚCICIELA — u nas Turbo. Live Component po KAŻDEJ odpowiedzi robi
+  `history.replaceState()`,** także wtedy, gdy nie ma ani jednego `LiveProp(url: true)`. Adres bierze
+  z nagłówka `X-Live-Url`, czyli z tego, co przeglądarka przysłała **w chwili startu żądania** —
+  a nie z tego, co jest w pasku, gdy odpowiedź wraca. Jeśli w międzyczasie nawigowało Turbo
+  (`data-turbo-action="advance"`), komponent cofa jego zmianę. Objawy są mylące, bo wyglądają na trzy
+  różne błędy: ID wiadomości pojawia się i znika, `?account=` miga, a `wstecz` gubi krok
+  (`replaceState` nadpisuje wpis dodany przez `advance`). **Reguła: przy nawigacji Turbo komponent
+  nie może dostać żądania.** Stan czysto wizualny (u nas podświetlenie wiersza) robi wtedy Stimulus
+  — bez żądania nie ma odpowiedzi, więc nie ma czego nadpisywać. Dwa komponenty z `url: true` obok
+  siebie są bezpieczniejsze (parametry są SCALANE, nie nadpisywane), ale przy równoczesnych żądaniach
+  wpadają w ten sam wyścig — każdy scala z adresem, który widział na starcie.
 - **Turbo Frames PRZEŁADOWUJĄ, Live Components MORFUJĄ — i to decyduje, co wolno owinąć ramką.**
   Ramka wymienia zawartość (stare węzły giną), więc gubi stan DOM: pozycję przewinięcia, fokus,
   zaznaczenie w polu. Morf zachowuje to wszystko, ale odpala się TYLKO przy odświeżeniu tego samego

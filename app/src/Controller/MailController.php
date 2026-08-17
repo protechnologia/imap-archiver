@@ -39,9 +39,6 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[IsGranted('ROLE_USER')]
 class MailController extends AbstractController {
 
-    /** Rozmiar strony listy. W 4.4 przejmuje go `LiveProp` komponentu `MailList`. */
-    private const PER_PAGE = 50;
-
     /**
      * __construct
      */
@@ -85,7 +82,6 @@ class MailController extends AbstractController {
     #[Route('/{id}', name: 'app_mail_show',  methods: ['GET'], requirements: ['id' => Requirement::DIGITS])]
     public function mailbox(Request $request, #[CurrentUser] User $user, ?int $id = null): Response {
         $requestedAccountId = $request->query->getInt('account');
-        $requestedPage      = $request->query->getInt('page', 1);
 
         // Wiadomość pobieramy tylko na trasie `/mail/{id}`; nieistniejące ID → 404.
         $message = $id === null ? null : $this->messageRepository->find($id);
@@ -106,20 +102,9 @@ class MailController extends AbstractController {
         //   3. gdy nie ma ani jednego, ani drugiego — `null`, czyli wszystkie konta użytkownika.
         $selectedAccount = $this->mailAccountRepository->findOneForUser($user, $requestedAccountId) ?? $message?->getAccount();
 
-        // Brak wybranego konta = lista ze WSZYSTKICH kont użytkownika, a nie z żadnego.
-        $accountIds = $selectedAccount === null ? $this->mailAccountRepository->findIdsForUser($user) : [(int) $selectedAccount->getId()];
-
-        $page = $this->messageRepository->searchPage(
-            accountIds: $accountIds,
-            query:      null,
-            page:       $requestedPage,
-            perPage:    self::PER_PAGE,
-        );
-
         return $this->render('mail/index.html.twig', [
             'accounts'        => $this->mailAccountRepository->findForUser($user),
             'selectedAccount' => $selectedAccount,
-            'page'            => $page,
             'message'         => $message,
         ]);
     }
