@@ -79,11 +79,36 @@ Wielu użytkowników z dostępem do podglądu; jeden admin robi import i zarząd
 
 ## Front — wzorzec
 
-- **Turbo Frames** = nawigacja między regionami (folder → lista, wiadomość → podgląd).
+- **Układ skrzynki: trzy regiony, DWIE trasy, JEDNA akcja** (`MailController::mailbox()`):
+  `/mail` to panele bez wybranej wiadomości, `/mail/{id}` te same panele z wypełnionym podglądem.
+  Osobnej trasy na sam środkowy panel świadomie NIE ma — Turbo wyciąga ramkę z pełnej odpowiedzi,
+  więc dodatkowy adres to drugi szablon i widok, który bez JS-u pokazuje goły fragment.
+  Regiony siedzą w partialach `_accounts` / `_list` / `_message`.
+- **Adresowanie: wiadomość w ŚCIEŻCE, stan widoku w QUERY.** `/mail/{id}` to tożsamość zasobu,
+  `?account=67` i `?page=2` to stan — spójnie z tym, jak `LiveProp(url: true)` zapisuje stan
+  komponentu. `?account=` jest inputem użytkownika i przechodzi przez
+  `MailAccountRepository::findOneForUser()`: cudze albo nieistniejące ID daje `null` i widok wraca
+  do „wszystkie konta", nigdy do cudzej poczty.
+- **Turbo Frames** = nawigacja między regionami. **JEDNA ramka, tylko na podgląd**
+  (`<turbo-frame id="message">`) — nie „każdy region w swojej ramce". Ramka PRZEŁADOWUJE, więc
+  wolno nią objąć region wymieniany w całości (podgląd), a nie taki, w którym użytkownik buduje
+  stan (lista) — pełne „dlaczego" w Gotchas. Klik w konto to pełna nawigacja Drive, bo zmienia
+  wszystkie trzy regiony, a jeden link adresuje tylko jedną ramkę.
 - **Live Component `MailList`** = reaktywność wewnątrz listy (szukaj/filtr/paginacja jako
-  `LiveProp`). Zagnieżdżony WEWNĄTRZ ramki listy — nie nakładamy obu mechanizmów na ten
-  sam element.
+  `LiveProp`). Stoi OBOK ramki podglądu, nie w niej i nie w ramce własnej: renderuje się morfem,
+  więc zachowuje przewinięcie i fokus — owinięcie go ramką odebrałoby dokładnie tę zaletę.
 - **Stimulus** = drobne sprinkles (nawigacja klawiaturą, obsługa iframe).
+- **Kolumny przewijają się osobno, nie strona jako całość.** Warunek działania: `min-h-0` na
+  elemencie z `overflow-y-auto` — element gridu/flexa ma domyślnie `min-height: auto` i bez tego
+  rozpycha siatkę zamiast przyciąć zawartość, więc pasek przewijania nigdy się nie pojawia.
+  Nagłówki kolumn i paginacja są `sticky` w obrębie swojej kolumny.
+- **Wąskie ekrany minimalnie** (to narzędzie desktopowe): poniżej `lg` panel kont zamienia się
+  w poziomy pasek nad listą, poniżej `md` widać albo listę, albo podgląd — sterowane samym
+  `message`, bez JS-a. Pasek jest konieczny, nie ozdobny: panel kont to JEDYNY sposób zmiany
+  skrzynki, więc samo jego ukrycie odbierałoby funkcję, a nie tylko widok.
+- **`target="_top"` w nagłówku `layout.html.twig` NIE jest potrzebny** — te linki leżą poza ramką,
+  a taki link celuje domyślnie w całą stronę. Reguła ODWRACA SIĘ dla linków WEWNĄTRZ podglądu
+  (treść maila 4.5, załączniki 4.6): tam jego brak wciągnie cudzą stronę do kolumny.
 - Treść HTML maila renderujemy w `<iframe sandbox>` (bez `allow-scripts`), po przepuszczeniu
   przez HTMLPurifier.
 - `LiveProp` non-writable są podpisane checksumem z `APP_SECRET` → można im ufać przy
@@ -112,6 +137,19 @@ Zestaw wystartował przy etapie 4.2 (PHPUnit + `symfony/test-pack` + `dama/doctr
   settera `id`). Statyczne dane (surowe `.eml`) leżą obok, w `tests/Fixtures/eml/` — `tests/Fixtures/`
   to jedno miejsce na wszystko, z czego testy czerpią dane; klasa nazywa się `EntityFactory`, a nie
   `Fixtures`, żeby nie dublować nazwy katalogu.
+- **Zachowanie JS-a (Turbo, od 4.4 Live Components) tylko w PRZEGLĄDARCE** (`tests/Browser/`,
+  `symfony/panther`). `WebTestCase` widzi wyłącznie HTML wysłany przez serwer — identyczny
+  niezależnie od tego, czy Turbo działa — więc pilnuje co najwyżej KONTRAKTU (obecność ramki,
+  `data-turbo-frame` na linku). Pozycja przewinięcia, tożsamość węzła po podmianie i historia
+  przeglądarki są stanem DOM i bez silnika JS nie istnieją. Cena jest wysoka (osobny serwer,
+  brak `dama`, ~2 s na test), więc trafia tu tylko to, czego naprawdę inaczej nie da się zmierzyć.
+- **Testy przeglądarkowe NIE MAJĄ rollbacku — sprzątają `TRUNCATE`-em przed i po sobie.**
+  Chromium rozmawia z aplikacją po HTTP, czyli przez granicę procesu: żądania obsługuje usługa
+  `php-test` z własnym połączeniem, a Postgres izoluje sesje, więc niezacommitowanej transakcji
+  `dama` ten proces nie widzi. Dane muszą iść realnym COMMIT-em (stąd `StaticDriver::setKeepStatic
+  Connections(false)` w `BrowserTestCase`), a skoro rollback już nie sprząta, robi to jawny reset.
+  Sprzątanie PO teście nie jest kurtuazją: zacommitowany `user@example.com` wywala na `UNIQUE(email)`
+  testy z reszty zestawu. Baza to zawsze `app_test` — pilnuje tego `assertTestDatabase()`.
 - **`dama/doctrine-test-bundle`** owija każdy test w transakcję cofaną na końcu — testy nie widzą
   swoich danych nawzajem i nie sprzątają ręcznie. Recipe jest w `recipes-contrib`, więc rejestracja
   bundla (`config/bundles.php`) i rozszerzenia PHPUnit (`phpunit.dist.xml`) jest ROBIONA RĘCZNIE.
@@ -193,115 +231,24 @@ mieszkają w sekcjach **Architektura**, **Model danych**, **Konfiguracja i sekre
         przetestować dopiero po rozbiciu na `configFor()` + `connect()` — robimy to przy XOAUTH2,
         żeby refactor miał dwa powody, nie jeden). Modele (`ArchivedFile`, `RawMessage`,
         `ImportSummary`, `MessageListPage`) to `readonly` nośniki — nie ma czego testować.
-  - [ ] **4.3** — trójpanelowy layout na Turbo Frames: konta/foldery → lista → podgląd.
-        Ramka = nawigacja między regionami; bez reaktywności wewnątrz (ta wchodzi w 4.4).
-        Adresowanie: **wiadomość zostaje w ścieżce** (`/mail/{id}` — tożsamość zasobu), a wybór
-        konta idzie **query stringiem** (`?account=67` — stan widoku), spójnie z `page` i z tym,
-        jak w 4.4 `LiveProp(url: true)` zapisuje stan komponentu.
-    - [x] **4.3a — trasy i akcje, jeszcze bez ramek.** DWIE trasy obsługiwane przez JEDNĄ akcję
-          (`MailController::mailbox()`): `/mail` to trzy panele bez wybranej wiadomości,
-          `/mail/{id}` te same trzy panele z wypełnionym podglądem. Osobnej trasy na sam środkowy
-          panel (`/mail/list`) świadomie NIE ma — Turbo wyciąga `<turbo-frame>` z odpowiedzi
-          pełnej strony, więc dodatkowy adres oznaczałby drugi szablon do utrzymania i widok,
-          który bez JS pokazuje goły fragment. Regiony są wydzielone do partiali
-          (`_accounts`/`_list`/`_message`), więc w 4.3c wystarczy je opakować.
-          **Bezpieczeństwo:** `?account=` to input użytkownika i przechodzi przez
-          `MailAccountRepository::findOneForUser()` — cudze albo nieistniejące ID daje `null`
-          (widok wraca do „wszystkie konta"), nigdy cudzą pocztę.
-          ➜ zweryfikowane curl-em: `/mail` i `/mail?account=67` (nagłówek listy i linki niosą
-          wybrane konto), `?account=999` cicho ignorowane, `/mail/2` renderuje komplet paneli
-          z tematem w `h1`, 110 testów z 4.2b dalej zielonych.
-    - [x] **4.3b — layout i stany puste.** Siatka Tailwind na pełną wysokość, **osobne przewijanie
-          każdej kolumny** (nie jedno dla całej strony), panel kont z `findForUser()` (stała
-          kolejność po `label`), zaznaczenie aktywnego konta, sensowne pustki: brak kont, konto bez
-          wiadomości, brak wybranej wiadomości. Foldery na razie płasko — `Message.folder` jest
-          stringiem z importu, drzewo folderów to nie ten etap.
-          **Warunek działania przewijania kolumn: `min-h-0` na elemencie z `overflow-y-auto`.**
-          Element gridu/flexa ma domyślnie `min-height: auto`, więc bez tego rozpycha siatkę
-          zamiast przyciąć zawartość i pasek przewijania nigdy się nie pojawia.
-          Wąskie ekrany MINIMALNIE (to narzędzie desktopowe): poniżej `lg` panel kont zamienia się
-          w poziomy pasek nad listą, poniżej `md` widać albo listę, albo podgląd — sterowane samym
-          `message`, bez JS-a. Pasek jest konieczny, a nie ozdobny: panel kont to JEDYNY sposób
-          zmiany skrzynki, więc samo jego ukrycie odbierałoby funkcję, nie tylko widok.
-          Nagłówki kolumn i paginacja są `sticky` w obrębie swojej kolumny.
-          ➜ zweryfikowane: klasy skompilowane do `var/tailwind/app.built.css`, struktura kolumn
-          w renderze zgodna, 117 testów zielonych. UWAGA: po dołożeniu nowych klas trzeba puścić
-          `tailwind:build` (albo `--watch` na czas pracy nad stylami).
-    - [x] **4.3c — Turbo Frames.** **JEDNA ramka, tylko na podgląd** (`<turbo-frame id="message">`),
-          nie „każdy region w swojej ramce". Powód: **ramka PRZEŁADOWUJE zawartość, nie morfuje**
-          (morf jest zarezerwowany dla odświeżenia TEGO SAMEGO adresu i akcji `refresh` w Turbo
-          Stream — `refresh="morph"` przy nawigacji Drive nie działa). Ramka wokół listy resetowałaby
-          więc jej przewinięcie przy KAŻDYM kliknięciu w wiadomość, czyli odtwarzała dokładnie tę
-          wadę, dla której 4.3c powstało. Podgląd i tak jest wymieniany w całości — jemu
-          przeładowanie nie szkodzi.
-          **Podział pracy między mechanizmy:** klik w wiadomość → ramka; klik w konto → pełna
-          nawigacja Turbo Drive (zmienia wszystkie trzy regiony, a **jeden link umie zaadresować
-          tylko jedną ramkę** — `data-turbo-frame` przyjmuje jeden `id`); szukanie i paginacja →
-          Live Component w 4.4 (renderuje się MORFEM, zachowuje przewinięcie i fokus — dlatego lista
-          nie może być w ramce). Turbo Streamy odrzucone: nie zmieniają adresu, a linki `GET`
-          domyślnie ich nie żądają.
-          **`display` na ramce warunkowy, nie sklejony:** `<turbo-frame>` jest elementem nieznanym
-          przeglądarce (`display: inline`), więc jawna klasa jest konieczna dla łańcucha `min-h-0`
-          + `overflow-y-auto` — ale bezwarunkowe `block` zderzałoby się z `hidden` na wąskim ekranie
-          i o zwycięzcy decydowałaby kolejność w arkuszu. Stąd `{{ message ? 'block' : 'hidden md:block' }}`.
-          `data-turbo-action="advance"` wchodzi TU, nie w 4.3d — bez niego ramka gubi adres, więc
-          `wstecz` i F5 działałyby gorzej niż przed 4.3c.
-          `target="_top"` **nie jest potrzebny** w nagłówku `layout.html.twig`: te linki leżą POZA
-          ramką, a taki link celuje domyślnie w całą stronę. Reguła odwraca się dla linków WEWNĄTRZ
-          podglądu (treść maila 4.5, załączniki 4.6) — tam jego brak wciągnie cudzą stronę do kolumny.
-          **ŚWIADOMA LUKA (4.3c–4.3e):** klik nie przestawia podświetlenia wiersza, bo lista nie
-          dostaje nowego `message`. Przy pełnym renderze (F5, deep link, zmiana konta) działa
-          poprawnie. Nie łatamy tego JS-em ani Streamem — wraca w 4.4 z `LiveProp`, tym samym
-          sposobem „z danych", tylko morfem.
-          ➜ zweryfikowane: ramka renderuje się na obu trasach, `<main>` ma nadal TROJE dzieci
-          (siatka gridu nietknięta), klasy `display` rozdzielone poprawnie, 117 testów zielonych,
-          `composer cs` czysty.
-    - [ ] **4.3d — weryfikacja zachowania Turbo w PRZEGLĄDARCE HEADLESS.** Kodu produkcyjnego do
-          napisania nie ma (`advance` wszedł w 4.3c) — to punkt czysto weryfikacyjny, ale wymaga
-          NOWEGO NARZĘDZIA: wszystkiego poniżej nie da się sprawdzić ani `WebTestCase`, ani curl-em,
-          bo Turbo to JS, a oba widzą wyłącznie HTML wysłany przez serwer. Stąd headless (Playwright
-          albo `symfony/panther`) — do postawienia w tym podpunkcie, bo od 4.4 (Live Components)
-          coraz więcej zachowania przenosi się na klienta i zostanie poza zasięgiem obecnego zestawu.
-          Środowisko dziś przeglądarki nie ma; instalacja to część zadania.
-          **Do zmierzenia:**
-          1. klik przeładowuje TYLKO prawą kolumnę (jedno żądanie w zakładce Sieć, panel kont i lista
-             nietknięte);
-          2. **przewinięcie listy przeżywa klik** — główny zysk z 4.3c, wciąż niepotwierdzony;
-             wymaga listy dłuższej niż wysokość kolumny (60+ wiadomości, dev ma dziś 3);
-          3. adres, `wstecz`, F5 — CZĘŚCIOWO POTWIERDZONE ręcznie: po pełnym wejściu na `/mail/{id}`
-             adres zmienia się poprawnie, a `wstecz` wraca do właściwej wiadomości Z zaznaczeniem
-             (Turbo odtwarza snapshot całej strony, nie robi żądania);
-          4. linki nagłówka (panel admina, wylogowanie, logo) nie wpadają do kolumny podglądu.
-          Renderowania samego fragmentu po nagłówku `Turbo-Frame` **nie robimy** — to optymalizacja
-          transferu, a pełna odpowiedź jest warunkiem działania bez JS-u.
-          **Zmierzone ograniczenie:** w ciągu klik → klik → `wstecz` zaznaczenie wiersza NIE nadąża
-          za podglądem — snapshot w historii ma listę z pierwszego kliknięcia i podgląd z drugiego.
-          Nierozstrzygnięte, czy podświetlenie znika zupełnie, czy zostaje na złym wierszu; to
-          decyduje o leku w 4.4 (brak → wystarczy `LiveProp` z ID, bo komponent weźmie stan z adresu;
-          rozjazd → potrzebny dodatkowo nasłuch `popstate`). Trzecia droga to świadoma zgoda na
-          chwilową niespójność. Przeniesienie ID wiadomości do query stringa odrzucone — łamałoby
-          podział „ścieżka vs query" z 4.3a.
-    - [x] **4.3e — testy funkcjonalne pod ramki.** Wyszło MNIEJ pracy, niż zakładał plan: dostrajanie
-          asercji z 4.2 okazało się zbędne, bo ramka zastąpiła `<section>` w tym samym miejscu i treść
-          `body` się nie zmieniła (117 testów przeszło bez jednej poprawki). Przypadek „żądanie ramki
-          oddaje sam fragment" **skreślony** — świadomie renderujemy zawsze pełną stronę (patrz 4.3d).
-          Dołożone trzy. Kontrakt z Turbo ma DWA KOŃCE (`id` ramki i `data-turbo-frame` na linku)
-          i awaria każdego jest tak samo cicha — strona renderuje się bez zarzutu, tylko klik
-          przestaje podmieniać podgląd. Stąd: ramka `#message` obecna na OBU trasach, linki listy
-          celujące w ramkę ISTNIEJĄCĄ w tej samej odpowiedzi (nazwa odczytana z linku, nie wpisana
-          z palca — asercja przeżyje 4.4 i zmianę nazwy w obu plikach naraz), deep link oddający
-          komplet trzech regionów. Zaznaczenia wiersza NIE testujemy (luka do 4.4). `WebTestCase`
-          nie wykonuje JS-u, więc sprawdzamy wyłącznie, czy serwer wysyła HTML, na którym Turbo
-          MOŻE zadziałać — nie samo zachowanie Turbo.
-          ➜ 120 testów, 280 asercji. Czułość potwierdzona eksperymentalnie: test spójności pada we
-          wszystkich trzech scenariuszach (brak atrybutu, literówka w atrybucie, literówka w `id`),
-          każdy z komunikatem wskazującym przyczynę.
+  - [x] **4.3** — trójpanelowy layout na Turbo Frames: konta → lista → podgląd (4.3a trasy,
+        4.3b layout, 4.3c ramka, 4.3d weryfikacja w przeglądarce, 4.3e testy kontraktu).
+        Trwałe ustalenia mieszkają w sekcjach **Front — wzorzec**, **Testy — zasady** i **Gotchas**;
+        pełne uzasadnienia decyzji w historii gita.
+        **Co warto pamiętać przy 4.4:** ramka obejmuje WYŁĄCZNIE podgląd, więc lista nie jest
+        i nie ma być w ramce; podświetlenie aktywnego wiersza po kliknięciu ZNIKA (potwierdzone
+        pomiarem w 4.3d) i to `LiveProp` z ID ma je przywrócić.
+        ➜ 125 testów, 295 asercji — w tym 5 w prawdziwej przeglądarce (`tests/Browser/`).
   - [ ] **4.4** — Live Component `MailList` w środkowej kolumnie: `query`/`page` jako writable
         `LiveProp` (traktowane jak input), `accountId` non-writable (podpisany). Kolumna listy
-        **nie jest ramką** (uzasadnienie w 4.3c) — komponent stoi obok ramki podglądu, nie w niej,
-        więc nawigacja do wiadomości go nie dotyka i jego stan żyje nieprzerwanie.
-        Dochodzi `LiveProp` z ID otwartej wiadomości: to on domyka lukę z 4.3c i przywraca
-        podświetlenie wiersza — morfem, z danych, bez JS-a.
+        **nie jest ramką** (uzasadnienie w „Front — wzorzec" i Gotchas) — komponent stoi obok ramki
+        podglądu, nie w niej, więc nawigacja do wiadomości go nie dotyka i jego stan żyje nieprzerwanie.
+        Dochodzi `LiveProp` z ID otwartej wiadomości: to on domyka lukę z 4.3 i przywraca
+        podświetlenie wiersza — morfem, z danych, bez JS-a. **Pomiar z 4.3d przesądził, że to
+        WYSTARCZY: nasłuch `popstate` NIE jest potrzebny**, bo podświetlenie po kliknięciu znika
+        zupełnie (a nie zostaje na złym wierszu), więc komponentowi wystarczy odtworzyć stan z adresu.
+        Gdy to zadziała, `testPodswietlenieWierszaGinieNaRamceAleDzialaPoPelnymRenderze()` zacznie
+        padać — wtedy usunąć test razem z opisem luki, a nie osłabiać asercję.
         Uwaga na zmianę konta: to pełna nawigacja Drive, więc komponent jest niszczony i budowany
         od nowa — stan musi dać się odtworzyć z adresu (`LiveProp(url: true)`), a nie być przenoszony.
   - [ ] **4.5** — render treści maila. UWAGA: `Message.body` to tylko ziarno tekstowe
@@ -359,6 +306,11 @@ docker compose exec php composer test:db   # baza app_test + migracje (raz, i po
 docker compose exec php composer test      # cały zestaw
 docker compose exec php php bin/phpunit tests/Unit          # tylko jednostkowe (bez bazy)
 docker compose exec php php bin/phpunit --filter Voter      # wybrany przypadek
+
+# testy w przeglądarce (od etapu 4.3d) — WYMAGAJĄ usługi php-test (profil "test")
+docker compose --profile test up -d php-test                # raz; bez tego lecą timeouty
+docker compose exec php php bin/phpunit tests/Browser
+docker compose --profile test down                          # sprzątanie: zwykły `down` NIE ubije php-test
 
 # styl kodu (php-cs-fixer; zakres src/ + tests/)
 docker compose exec php composer cs        # tylko pokazuje, co wymaga poprawy
@@ -475,12 +427,22 @@ Eksploratora Windows pod `\\wsl.localhost\dev-edor-gw\root\projects\imap-archive
   stanu żądania w usługach; stanowe usługi implementują `ResetInterface`, najlepiej trzymaj
   je bezstanowymi. UWAGA: worker **nie jest jeszcze włączony** — `FRANKENPHP_CONFIG` jest puste,
   dev działa w klasycznym `php_server` (zmiany kodu łapią się per-request, bez restartu).
-  Worker wchodzi w **etapie 4** — czyli PO etapie 5, patrz kolejność w planie —
-  (`FRANKENPHP_CONFIG=worker ./public/index.php`); dopiero wtedy
-  zmiana klasy PHP wymaga restartu kontenera, by worker wczytał nowy kod. Powyższe zasady
+  Worker wchodzi w **etapie 5** (`FRANKENPHP_CONFIG=worker ./public/index.php`), razem z Messengerem
+  i skalą — czyli PO całym etapie 4. Dopiero wtedy zmiana klasy PHP wymaga restartu kontenera, by
+  worker wczytał nowy kod. **Dotyczy to także usługi `php-test`**: dziś testy przeglądarkowe widzą
+  zmiany w PHP od razu, po włączeniu workera trzeba będzie ją restartować, inaczej mierzą stary kod. Powyższe zasady
   bezstanowości piszemy już teraz, żeby kod był gotowy na worker.
 - `EntityManager` w długo żyjącym workerze: pamiętać o `clear()` i obsłudze zamkniętego EM.
 - `docker compose down -v` KASUJE nazwane wolumeny — w tym bazę. Bez `-v` wolumeny zostają.
+- **Profil `test` DOKŁADA usługę, niczego nie zastępuje — a `down` bez flagi jej nie ubije.**
+  `docker compose up -d` działa jak zawsze (usługi bez `profiles:` wstają zawsze, `php-test` jest
+  pomijany); `--profile test up -d` podnosi WSZYSTKO razem z `php-test`. Pułapka jest przy
+  zatrzymywaniu: `up`/`down`/`restart` operują na zbiorze zależnym od profili, więc zwykły
+  `down` zostawia `php-test` działający — sprząta dopiero `docker compose --profile test down`.
+  Przy `down -v` to myli podwójnie: wolumeny znikają, a osierocony `php-test` dalej próbuje
+  pracować na skasowanej bazie. UWAGA: `ps` jest tu wyjątkiem — pokazuje kontenery FAKTYCZNIE
+  działające, więc widać w nim `php-test` niezależnie od flagi (zbiór usług pokazuje
+  `config --services`, i to tam widać różnicę).
 - Surowe archiwum `.eml` (źródło prawdy) idzie na **bind mount do katalogu hosta POZA repo**
   (`ARCHIVE_HOST_DIR`), nie na nazwany wolumen — nazwany wolumen ginie przy `down -v`, a katalog
   wewnątrz repo skasowałby `git clean -fdx`. Szczegóły w planie etapu 3.2.

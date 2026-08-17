@@ -23,6 +23,15 @@ use App\Entity\User;
  * podaje się argumentem. Encje NIE są zapisywane — `persist()`/`flush()` robi test.
  */
 final class EntityFactory {
+    /**
+     * Hasło wszystkich fikstur, jawnie — potrzebne testom przeglądarkowym.
+     *
+     * Testy funkcjonalne logują się przez `loginUser()`, które hasła w ogóle nie sprawdza, więc
+     * do 4.3d wystarczał hash-atrapa. Przeglądarka przechodzi jednak PRAWDZIWĄ ścieżką logowania
+     * (formularz → weryfikacja hashem), a wtedy hash musi odpowiadać znanemu hasłu.
+     */
+    public const PASSWORD = 'Testowe123!';
+
     /** Licznik do generowania unikalnych `sha256` (UNIQUE(account_id, sha256)). */
     private static int $sequence = 0;
 
@@ -44,7 +53,8 @@ final class EntityFactory {
     }
 
     /**
-     * Użytkownik z gotowym hashem hasła (testy logują się przez `loginUser()`, nie formularzem).
+     * Użytkownik z hashem `self::PASSWORD` — działa i przy `loginUser()` (hasła nie sprawdza),
+     * i przy logowaniu formularzem w przeglądarce (sprawdza).
      *
      * @param string       $email Adres e-mail = identyfikator w security, np. "user@example.com"
      * @param list<string> $roles Role BEZ `ROLE_USER` (dokłada je getter), np. ["ROLE_ADMIN"]
@@ -55,7 +65,10 @@ final class EntityFactory {
         return (new User())
             ->setEmail($email)
             ->setRoles($roles)
-            ->setPassword('$2y$13$atrapa.hasha.ktorego.nikt.nie.weryfikuje');
+            // Prawdziwy hash `self::PASSWORD` (bcrypt, cost 4 — tyle ustawia `when@test`).
+            // Do 4.3d była tu atrapa: `loginUser()` hasła nie weryfikuje. Testy przeglądarkowe
+            // logują się jednak formularzem, więc hash musi się zgadzać z hasłem.
+            ->setPassword('$2y$04$iLBwuR7jx2acXuLP6sf0VOpUFMdVErH7W/wDzxM1k3FeB8XuQOoBi');
     }
 
     /**

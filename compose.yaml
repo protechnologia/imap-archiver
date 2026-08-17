@@ -36,6 +36,43 @@ services:
       database:
         condition: service_healthy
 
+  # Serwer WYŁĄCZNIE pod testy w przeglądarce (etap 4.3d). Chromium rozmawia z aplikacją po HTTP,
+  # więc żądania obsługuje OSOBNY PROCES z własnym połączeniem do bazy — niezacommitowanej
+  # transakcji `dama/doctrine-test-bundle` nie zobaczy. Dane testowe muszą więc być realnie
+  # zacommitowane, a skoro tak, to nie mogą trafić do deweloperskiej `app`: stąd `APP_ENV=test`,
+  # z którego `dbname_suffix` (when@test w doctrine.yaml) robi bazę `app_test`.
+  #
+  # `profiles` trzyma tę usługę POZA zwykłym `docker compose up` — wstaje tylko na żądanie:
+  #   docker compose --profile test up -d php-test
+  # Bez portu na hoście: ruch idzie wewnątrz sieci Dockera, po nazwie `php-test`.
+  php-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    profiles: ["test"]
+    restart: "no"
+    environment:
+      SERVER_NAME: ":80"
+      FRANKENPHP_CONFIG: ""
+      APP_ENV: test
+      # Ta sama baza `app`, którą `dbname_suffix: _test` zamienia na `app_test` — nazwy bazy
+      # testowej NIE wpisujemy tu wprost, żeby istniała w jednym miejscu (doctrine.yaml).
+      DATABASE_URL: "postgresql://app:${DB_PASSWORD:-ChangeMe}@database:5432/app?serverVersion=16&charset=utf8"
+      ARCHIVE_DIR: "/archive"
+    volumes:
+      - ./app/:/app
+      # Archiwum testowe OSOBNE od deweloperskiego — celowo NIE bind mount do
+      # ${ARCHIVE_HOST_DIR}. Realne archiwum jest źródłem prawdy i testy nie mają prawa go
+      # dotknąć (dziś tylko czytają listę, ale od 4.5 sięgną po `.eml` przez ArchiveStorage).
+      # Nazwany wolumen, bo tych plików nikt nie backupuje ani nie ogląda z hosta — w
+      # odróżnieniu od realnego archiwum, które jest bindem właśnie po to, żeby dało się je
+      # skopiować z hosta i żeby nie zginęło od `down -v`.
+      - archive_test:/archive
+      - ./frankenphp/Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      database:
+        condition: service_healthy
+
   database:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -55,3 +92,5 @@ volumes:
   database_data:
   caddy_data:
   caddy_config:
+  # Archiwum `.eml` dla usługi php-test (profil "test") — nigdy nie miesza się z realnym.
+  archive_test:

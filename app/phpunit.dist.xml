@@ -40,8 +40,15 @@
     </source>
 
     <extensions>
+        <!-- Sprząta po testach przeglądarkowych (ubija ChromeDriver, zbiera zrzuty ekranu przy
+             padniętych asercjach). Serwera NIE stawia — celujemy w usługę `php-test` z compose
+             przez PANTHER_EXTERNAL_BASE_URI, zob. .env.test. -->
+        <bootstrap class="Symfony\Component\Panther\ServerExtension"/>
+
         <!-- Każdy test w transakcji cofanej po zakończeniu: testy bazodanowe nie widzą
-             swoich danych nawzajem i nie muszą sprzątać po sobie ręcznie. -->
+             swoich danych nawzajem i nie muszą sprzątać po sobie ręcznie.
+             WYJĄTEK: `tests/Browser/` wyłącza to u siebie — dane muszą przejść przez granicę
+             procesu do serwera, więc idą COMMIT-em, a sprzątanie jest jawne (zob. BrowserTestCase). -->
         <bootstrap class="DAMA\DoctrineTestBundle\PHPUnit\PHPUnitExtension"/>
     </extensions>
 </phpunit>
