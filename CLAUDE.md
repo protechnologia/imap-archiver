@@ -127,45 +127,47 @@ Wielu użytkowników z dostępem do podglądu; jeden admin robi import i zarząd
 
 Zestaw wystartował przy etapie 4.2 (PHPUnit + `symfony/test-pack` + `dama/doctrine-test-bundle`).
 
-- **Kontrolery tylko funkcjonalnie (`WebTestCase`), nigdy jednostkowo.** W akcjach nie ma logiki
-  do izolowania, a wszystko, co w nich ryzykowne, mieszka POZA klasą: `#[IsGranted]`/`#[CurrentUser]`
-  rozwiązuje framework, 403 wychodzi z warstwy security, 404 na `/mail/abc` daje routing
-  (`Requirement::DIGITS`), a błąd w Twigu to 500. Test z zamockowanym `render()` nie zobaczy nic z tego.
+**Podział na warstwy — decyduje PIERWSZY pasujący wiersz, z góry na dół:**
+
+| # | Pytanie | Katalog | Klasa bazowa | Przykład |
+|---|---------|---------|--------------|----------|
+| 1 | Potrzebuje prawdziwej przeglądarki? | `tests/Browser/` | `BrowserTestCase` (Panther) | `MailListComponentTest` |
+| 2 | Wchodzi przez PUNKT WEJŚCIA użytkownika — HTTP, CLI, trasa komponentu? | `tests/Functional/` | `WebTestCase` albo `KernelTestCase` + `CommandTester` | `MailControllerTest`, `ArchiveImportCommandTest` |
+| 3 | Potrzebuje kernela/kontenera? | `tests/Integration/` | `KernelTestCase` | `ImportManagerTest`, `MessageRepositoryTest` |
+| 4 | Reszta | `tests/Unit/` | `PHPUnit\…\TestCase` | `MessageVoterTest`, `ArchiveStorageTest` |
+
+- **Kontrolerów NIE testujemy jednostkowo.** Nie ma w nich logiki do izolowania, a wszystko ryzykowne
+  mieszka poza klasą: `#[IsGranted]`/`#[CurrentUser]` rozwiązuje framework, 403 daje security,
+  404 na `/mail/abc` routing (`Requirement::DIGITS`), błąd w Twigu to 500. Zamockowany `render()`
+  nie zobaczy nic z tego.
 - **Voter: jednostkowo + dwa razy funkcjonalnie.** Jednostkowo pełna matryca reguły na podstawionym
-  repozytorium (grosze czasu), funkcjonalnie tylko potwierdzenie, że Voter jest PODPIĘTY — bo
-  najgroźniejsza awaria to nie zła reguła, lecz reguła, o którą nikt nie pyta.
-- **Repozytoria integracyjnie i KONIECZNIE na Postgresie.** `searchPage()` testuje zachowania silnika
-  (`NULLS FIRST` przy `DESC`, `LIKE` wrażliwy na wielkość liter, `ESCAPE`); na SQLite „dla szybkości"
-  te testy świeciłyby na zielono przy zepsutym kodzie.
+  repozytorium (grosze czasu), funkcjonalnie tylko to, że jest PODPIĘTY — najgroźniejsza awaria to
+  nie zła reguła, lecz reguła, o którą nikt nie pyta.
+- **Repozytoria KONIECZNIE na Postgresie.** `searchPage()` testuje zachowania silnika (`NULLS FIRST`
+  przy `DESC`, `LIKE` wrażliwy na wielkość liter, `ESCAPE`); na SQLite „dla szybkości" te testy
+  świeciłyby na zielono przy zepsutym kodzie.
 - **Dane testowe budujemy w kodzie** (`tests/Fixtures/EntityFactory.php`), bez `DoctrineFixturesBundle`
-  — każdy test potrzebuje 2-3 rekordów ustawionych pod konkretny przypadek, nie wspólnego zestawu.
+  — każdy test potrzebuje 2-3 rekordów pod konkretny przypadek, nie wspólnego zestawu.
   `EntityFactory::withId()` wstawia ID refleksją WYŁĄCZNIE dla testów bez bazy (encje nie mają
-  settera `id`). Statyczne dane (surowe `.eml`) leżą obok, w `tests/Fixtures/eml/` — `tests/Fixtures/`
-  to jedno miejsce na wszystko, z czego testy czerpią dane; klasa nazywa się `EntityFactory`, a nie
-  `Fixtures`, żeby nie dublować nazwy katalogu.
-- **Live Component testujemy DWA RAZY, bo ma własną trasę HTTP.** Żądania komponentu idą na
-  `/_components/<Nazwa>`, więc kontroler i jego zawężenie dostępu w ogóle się nie wykonują — gdyby
-  komponent ufał podpisanemu `LiveProp` na słowo, byłoby to wejście do cudzej poczty przy zielonych
-  testach kontrolera. Stąd `tests/Functional/Component/` (reguła dostępu, przez `InteractsWithLive
-  Components` — UWAGA: `createLiveComponent()` bierze świeżego klienta z kontenera, więc zalogowanego
-  trzeba podać TRZECIM argumentem, inaczej leci „Access Denied") i `tests/Browser/` (reaktywność,
-  której `WebTestCase` nie zobaczy, bo żądania lecą JS-em).
-- **Zachowanie JS-a (Turbo, od 4.4 Live Components) tylko w PRZEGLĄDARCE** (`tests/Browser/`,
-  `symfony/panther`). `WebTestCase` widzi wyłącznie HTML wysłany przez serwer — identyczny
-  niezależnie od tego, czy Turbo działa — więc pilnuje co najwyżej KONTRAKTU (obecność ramki,
-  `data-turbo-frame` na linku). Pozycja przewinięcia, tożsamość węzła po podmianie i historia
-  przeglądarki są stanem DOM i bez silnika JS nie istnieją. Cena jest wysoka (osobny serwer,
-  brak `dama`, ~2 s na test), więc trafia tu tylko to, czego naprawdę inaczej nie da się zmierzyć.
-- **Testy przeglądarkowe NIE MAJĄ rollbacku — sprzątają `TRUNCATE`-em przed i po sobie.**
-  Chromium rozmawia z aplikacją po HTTP, czyli przez granicę procesu: żądania obsługuje usługa
-  `php-test` z własnym połączeniem, a Postgres izoluje sesje, więc niezacommitowanej transakcji
-  `dama` ten proces nie widzi. Dane muszą iść realnym COMMIT-em (stąd `StaticDriver::setKeepStatic
-  Connections(false)` w `BrowserTestCase`), a skoro rollback już nie sprząta, robi to jawny reset.
-  Sprzątanie PO teście nie jest kurtuazją: zacommitowany `user@example.com` wywala na `UNIQUE(email)`
-  testy z reszty zestawu. Baza to zawsze `app_test` — pilnuje tego `assertTestDatabase()`.
-- **`dama/doctrine-test-bundle`** owija każdy test w transakcję cofaną na końcu — testy nie widzą
-  swoich danych nawzajem i nie sprzątają ręcznie. Recipe jest w `recipes-contrib`, więc rejestracja
-  bundla (`config/bundles.php`) i rozszerzenia PHPUnit (`phpunit.dist.xml`) jest ROBIONA RĘCZNIE.
+  settera `id`). Statyczne `.eml` obok, w `tests/Fixtures/eml/`.
+- **Live Component testujemy DWA RAZY.** Żądania komponentu idą na `/_components/<Nazwa>`, więc
+  kontroler i jego zawężenie dostępu w ogóle się nie wykonują — gdyby komponent ufał podpisanemu
+  `LiveProp` na słowo, byłoby to wejście do cudzej poczty przy zielonych testach kontrolera. Stąd
+  osobno reguła dostępu, osobno reaktywność. UWAGA: `createLiveComponent()` bierze świeżego klienta
+  z kontenera, więc zalogowanego trzeba podać TRZECIM argumentem, inaczej leci „Access Denied".
+- **`WebTestCase` pilnuje co najwyżej KONTRAKTU JS-a** (obecność ramki, `data-turbo-frame` na linku):
+  widzi wyłącznie HTML z serwera, identyczny niezależnie od tego, czy Turbo działa. Pozycja
+  przewinięcia, tożsamość węzła po podmianie i historia przeglądarki są stanem DOM. Przeglądarka
+  kosztuje (~2 s na test), więc trafia tam tylko to, czego inaczej nie da się zmierzyć.
+- **Testy przeglądarkowe NIE MAJĄ rollbacku — sprzątają `TRUNCATE`-em przed i po sobie.** Żądania
+  obsługuje `php-test` z własnym połączeniem, a Postgres izoluje sesje, więc niezacommitowanej
+  transakcji `dama` ten proces nie widzi; dane muszą iść realnym COMMIT-em (`StaticDriver::setKeep
+  StaticConnections(false)` w `BrowserTestCase`). Sprzątanie PO teście nie jest kurtuazją:
+  zacommitowany `user@example.com` wywala na `UNIQUE(email)` testy z reszty zestawu. Baza to zawsze
+  `app_test` — pilnuje tego `assertTestDatabase()`.
+- **`dama/doctrine-test-bundle`** owija każdy test w transakcję cofaną na końcu. Recipe jest
+  w `recipes-contrib`, więc rejestracja bundla (`config/bundles.php`) i rozszerzenia PHPUnit
+  (`phpunit.dist.xml`) jest ROBIONA RĘCZNIE.
 - Baza testowa to `app_test` — robi ją `dbname_suffix: _test` z `when@test` w `doctrine.yaml`,
   `DATABASE_URL` zostaje ten z `compose.yaml`. Sekrety testowe (`APP_SECRET`, `MAIL_CRYPTO_KEY`)
   w commitowanym `app/.env.test`; bez `MAIL_CRYPTO_KEY` nie zapiszesz `MailAccount`.

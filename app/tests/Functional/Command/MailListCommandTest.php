@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Command;
+namespace App\Tests\Functional\Command;
 
 use App\Entity\MailAccount;
 use App\Tests\Fixtures\EntityFactory;
