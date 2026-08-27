@@ -5,9 +5,14 @@
   trzech regionów czytało się jednakowo: każdy region to jeden `include`. Cała treść listy —
   nagłówek, szukanie, wiersze, paginacja — mieszka w `templates/components/MailList.html.twig`.
 
-  `accountId` i `messageId` przekazujemy jako WARTOŚCI, nie encje: `LiveProp` musi dać się
-  odesłać w żądaniu komponentu, a poza tym `accountId` jest non-writable i podpisany. Komponent
-  i tak nie ufa mu na słowo — pyta `MailAccountRepository`, tak samo jak kontroler.
+  `accountId` przekazujemy jako WARTOŚĆ, nie encję: `LiveProp` musi dać się odesłać w żądaniu
+  komponentu, a poza tym jest non-writable i podpisany. Komponent i tak nie ufa mu na słowo —
+  pyta `MailAccountRepository`, tak samo jak kontroler.
+
+  OTWARTEJ WIADOMOŚCI TU NIE MA i to jest celowe, choć `message` leży pod ręką. Podświetlenie
+  wiersza wyprowadza z adresu kontroler Stimulusa `active-row`; przekazane tu ID byłoby aktualne
+  wyłącznie w chwili renderu strony, a każda późniejsza akcja live odsyłałaby wartość sprzed
+  kliknięcia. Pełne „dlaczego" w `active_row_controller.js`.
 
   `accounts` idzie osobno, bo służy wyłącznie do wyświetlenia (pasek kont na wąskim ekranie)
   i nie jest stanem komponentu. Wybranego konta NIE przekazujemy jako encji — komponent
@@ -17,6 +22,5 @@
    wywraca parser („Expected "=" after :accountId"). Stąd zapis bez odstępów. #}
 <twig:MailList
     :accountId="selectedAccount ? selectedAccount.id : null"
-    :messageId="message ? message.id : null"
     :accounts="accounts"
 />

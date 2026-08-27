@@ -3,13 +3,14 @@ import { Controller } from '@hotwired/stimulus';
 /*
  * Podświetlenie wiersza odpowiadającego otwartej wiadomości (etap 4.4).
  *
- * Po co osobny kontroler, skoro klasę ustawia już Twig: klik w wiadomość podmienia WYŁĄCZNIE
- * ramkę podglądu, więc lista nie jest przerysowywana i zostaje z podświetleniem sprzed kliknięcia.
+ * JEDYNE ŹRÓDŁO tej klasy. Szablon renderuje wiersze zawsze jako nieaktywne, komponent nie zna ID
+ * otwartej wiadomości — całą regułę „który wiersz jest aktywny" trzyma ten kontroler.
  *
- * Źródłem prawdy jest ADRES, nie kliknięcie. To istotne: gdyby kontroler reagował na klik,
- * podświetlenie rozjeżdżałoby się z podglądem po użyciu `wstecz` — adres i ramka wracają
- * do poprzedniej wiadomości, a kliknięcia wtedy nie ma. Nasłuch `turbo:frame-load` łapie
- * KAŻDĄ zmianę podglądu jednakowo: klik, `wstecz`, `dalej`.
+ * Źródłem prawdy jest ADRES, nie kliknięcie. To istotne z dwóch powodów. Po pierwsze, gdyby
+ * kontroler reagował na klik, podświetlenie rozjeżdżałoby się z podglądem po użyciu `wstecz` —
+ * adres i ramka wracają do poprzedniej wiadomości, a kliknięcia wtedy nie ma. Po drugie, adres
+ * jest jedyną rzeczą wspólną dla wszystkich dróg dojścia: kliku, `wstecz`, `dalej`, deep linku
+ * i F5.
  *
  * Dlaczego w JS-ie, a nie po stronie serwera. Próbowaliśmy przestawiać to akcją Live Componentu
  * (`messageId` + `LiveProp(url: mapPath)`) i działało, ale kosztem wyścigu o pasek adresu: Turbo
@@ -17,16 +18,20 @@ import { Controller } from '@hotwired/stimulus';
  * robi `history.replaceState()` i nadpisywał ten wpis — `wstecz` gubił wtedy krok. Podświetlenie
  * to stan interfejsu, nie dane; serwer nie musi o nim wiedzieć.
  *
- * Cena, którą płacimy świadomie: reguła „aktywny wiersz" żyje w dwóch miejscach — Twig ustawia ją
- * przy renderze strony (deep link, F5, zmiana konta), ten kontroler przy nawigacji w obrębie listy.
- * Stąd klasy w stałych, żeby zmiana wyglądu wymagała poprawki w dwóch miejscach, a nie w pięciu.
+ * DWA WEJŚCIA, bo są dwie różne sytuacje:
+ *   • `turbo:frame-load` — zmienił się ADRES, wiersze zostały te same (klik, `wstecz`, `dalej`);
+ *   • `rowTargetConnected()` — zmieniły się WIERSZE, adres został ten sam (szukanie, paginacja).
+ * Drugie działa dzięki `data-skip-morph` na `<ul>`: lista jest wymieniana hurtem, więc każdy
+ * wiersz pojawia się jako nowy element i sam pyta o stan. Bez tego atrybutu wiersze byłyby
+ * morfowane w miejscu, target nie zgłaszałby się ponownie, a Live Component odtwarzałby klasę
+ * na wierszu z tego samego MIEJSCA — czyli na innej wiadomości.
  */
 export default class extends Controller {
     static targets = ['row'];
 
     /*
-     * Muszą być zgodne z klasami w `templates/components/MailList.html.twig` — Twig ustawia je
-     * przy renderze strony, ten kontroler przy nawigacji w obrębie listy.
+     * Muszą być zgodne z klasą wiersza w `templates/components/MailList.html.twig` — szablon
+     * ustawia stan neutralny, ten kontroler przełącza go na aktywny i z powrotem.
      *
      * Płynność daje `transition-colors` na wierszu (w szablonie), a nie te klasy: przełączamy
      * KOLOR obramowania, nie jego grubość, bo `border-l-2` jest na każdym wierszu i tylko
@@ -47,20 +52,46 @@ export default class extends Controller {
     }
 
     /**
+     * Nowy wiersz pojawił się w DOM — od razu dostaje stan wynikający z adresu.
+     *
+     * Stimulus woła to także dla wierszy obecnych w chwili podłączenia kontrolera, więc pokrywa
+     * pierwszy render strony (deep link, F5) i nie trzeba osobnego przebiegu w `connect()`.
+     *
+     * @param {HTMLElement} row Element `<li>` wiersza
+     */
+    rowTargetConnected(row) {
+        this.paint(row, this.openedId());
+    }
+
+    /**
      * Przenosi podświetlenie na wiersz wskazany przez adres.
      *
      * Adres bez identyfikatora (`/mail`) znaczy „nic nie jest otwarte" — wtedy podświetlenie
      * znika, zamiast zostać na ostatnio oglądanej wiadomości.
      */
     syncWithUrl() {
+        const openedId = this.openedId();
+
+        this.rowTargets.forEach((row) => this.paint(row, openedId));
+    }
+
+    /**
+     * @param {HTMLElement} row Element `<li>` wiersza
+     * @param {?string} openedId ID otwartej wiadomości albo null, np. "42"
+     */
+    paint(row, openedId) {
+        const isActive = row.dataset.messageId === openedId;
+
+        this.constructor.ACTIVE.forEach((name) => row.classList.toggle(name, isActive));
+        this.constructor.INACTIVE.forEach((name) => row.classList.toggle(name, !isActive));
+    }
+
+    /**
+     * @return {?string} ID wiadomości z adresu, np. "42"; null gdy żadna nie jest otwarta
+     */
+    openedId() {
         const match = window.location.pathname.match(/\/mail\/(\d+)/);
-        const openedId = match === null ? null : match[1];
 
-        this.rowTargets.forEach((row) => {
-            const isActive = row.dataset.activeRowIdParam === openedId;
-
-            this.constructor.ACTIVE.forEach((name) => row.classList.toggle(name, isActive));
-            this.constructor.INACTIVE.forEach((name) => row.classList.toggle(name, !isActive));
-        });
+        return match === null ? null : match[1];
     }
 }

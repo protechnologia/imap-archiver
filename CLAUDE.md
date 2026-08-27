@@ -96,14 +96,18 @@ Wielu użytkowników z dostępem do podglądu; jeden admin robi import i zarząd
   stan (lista) — pełne „dlaczego" w Gotchas. Klik w konto to pełna nawigacja Drive, bo zmienia
   wszystkie trzy regiony, a jeden link adresuje tylko jedną ramkę.
 - **Live Component `MailList`** = reaktywność wewnątrz listy (szukaj/filtr/paginacja jako
-  `LiveProp`). Stoi OBOK ramki podglądu, nie w niej i nie w ramce własnej: renderuje się morfem,
-  więc zachowuje przewinięcie i fokus — owinięcie go ramką odebrałoby dokładnie tę zaletę.
+  `LiveProp`). Stoi OBOK ramki podglądu, nie w niej i nie w ramce własnej: nagłówek z polem
+  szukania renderuje się morfem, więc zachowuje fokus i kursor przy każdym znaku — owinięcie
+  ramką odebrałoby dokładnie tę zaletę. Same WIERSZE mają `data-skip-morph` i są wymieniane
+  hurtem: przy każdej akcji zmienia się cała zawartość listy, nie ma w nich stanu DOM do ocalenia,
+  a morfowanie ich robiło realną szkodę (Gotchas — „tracker przenosi zmiany na pozycję").
 - **Stimulus** = drobne sprinkles (nawigacja klawiaturą, obsługa iframe) ORAZ stan czysto wizualny,
-  którego serwer nie musi znać. Podświetlenie aktywnego wiersza (`active_row_controller.js`) czyta
-  ADRES przy `turbo:frame-load`, więc obsługuje klik, `wstecz` i `dalej` jednakowo. Robienie tego
-  akcją Live Componentu jest KUSZĄCE I BŁĘDNE — powód w Gotchas („pasek adresu ma jednego
-  właściciela"). Cena: reguła „aktywny wiersz" jest w dwóch miejscach (Twig przy renderze strony,
-  Stimulus przy nawigacji w liście), dlatego klasy siedzą w stałych kontrolera.
+  którego serwer nie musi znać. Podświetlenie aktywnego wiersza (`active_row_controller.js`) jest
+  wyprowadzane WYŁĄCZNIE z adresu i ma dwa wejścia: `turbo:frame-load` (zmienił się adres, wiersze
+  te same — klik, `wstecz`, `dalej`) i `rowTargetConnected()` (zmieniły się wiersze, adres ten sam
+  — szukanie, paginacja, pierwszy render). Robienie tego akcją Live Componentu jest KUSZĄCE
+  I BŁĘDNE — powód w Gotchas („pasek adresu ma jednego właściciela"). Serwer renderuje wiersze
+  zawsze jako nieaktywne, więc reguła „aktywny wiersz" ma JEDNĄ kopię, w kontrolerze.
 - **Kolumny przewijają się osobno, nie strona jako całość.** Warunek działania: `min-h-0` na
   elemencie z `overflow-y-auto` — element gridu/flexa ma domyślnie `min-height: auto` i bez tego
   rozpycha siatkę zamiast przyciąć zawartość, więc pasek przewijania nigdy się nie pojawia.
@@ -266,6 +270,16 @@ mieszkają w sekcjach **Architektura**, **Model danych**, **Konfiguracja i sekre
         wstrzykniętą regresją.
         **Otwarte na 4.7:** `wstecz` przy paginacji gubi przewinięcie listy (Turbo przywraca
         przewinięcie OKNA, nie wnętrza kolumny).
+  - [x] **4.4b** — podświetlenie wiersza na jedno źródło. Testy wykryły, że po szukaniu i paginacji
+        zaznaczenie wskazywało CUDZĄ wiadomość: morf Live Componentu odtwarzał klasę nałożoną przez
+        Stimulusa na wierszu z tej samej POZYCJI (`ExternalMutationTracker` — pełne „dlaczego"
+        w Gotchas). `LiveProp $messageId` usunięty (był aktualny tylko w chwili renderu strony),
+        `<ul>` dostała `data-skip-morph`, kontroler dostał drugie wejście `rowTargetConnected()`.
+        Reguła „aktywny wiersz" ma teraz JEDNĄ kopię — w `active_row_controller.js`.
+        ➜ 141 testów, 339 asercji (było 136/323) — 5 nowych przeglądarkowych: dwa na defekt, dwa
+        strażniki przed naprawą „zgaśmy wszystko" i jeden na jedyną ścieżkę, w której wiersz znika
+        z DOM i wraca. Nośność `data-skip-morph` i `rowTargetConnected()` potwierdzona osobno,
+        wstrzykniętą regresją.
   - [ ] **4.5** — render treści maila. UWAGA: `Message.body` to tylko ziarno tekstowe
         (`MessageFactory::extractBody()` preferuje `text`, HTML jest fallbackiem) — pełny HTML
         czytamy z `.eml` przez `ArchiveStorage`. HTMLPurifier → `<iframe sandbox>` bez
@@ -527,6 +541,20 @@ Eksploratora Windows pod `\\wsl.localhost\dev-edor-gw\root\projects\imap-archive
   który i tak wymieniamy w całości** (podgląd), a nie taki, w którym użytkownik buduje stan (lista).
   Do tego **jeden link = jedna ramka** (`data-turbo-frame` bierze jeden `id`), a linki `GET`
   domyślnie nie żądają Turbo Streamów (potrzebny jawny `data-turbo-stream`).
+- **Morf Live Componentu ODTWARZA ZMIANY DOM ZROBIONE SPOZA KOMPONENTU — na elemencie z tego
+  samego MIEJSCA.** `ExternalMutationTracker` obserwuje poddrzewo, gdy komponent jest bezczynny,
+  i po morfie nakłada zapamiętane zmiany na dopasowany węzeł. Bez `id` Idiomorph dopasowuje
+  POZYCYJNIE, więc klasa nałożona przez Stimulusa wędrowała na wiersz o tym samym indeksie, czyli
+  na INNĄ wiadomość — podgląd pokazywał jedno, lista wskazywała drugie. Objaw jest podstępny, bo
+  wygląda na działający: przy powrocie na tę samą stronę trafia dobrze, przypadkiem. Samo dodanie
+  `id` NIE wystarcza (zmierzone) — dopasowanie po `id` działa tylko wtedy, gdy element istnieje
+  po OBU stronach morfa, a przy zmianie strony otwartej wiadomości w nowym HTML-u nie ma.
+  Rozwiązanie: `data-skip-morph` na `<ul>` (stare węzły giną, nie ma czego odtwarzać) + wyprowadzanie
+  stanu z adresu w `rowTargetConnected()`. **Reguła ogólna: nie każ trackerowi przenosić wartości
+  POCHODNEJ** — on widzi tylko DOM, nie zna źródła, z którego ta wartość wynika.
+  Selektywnego wyłącznika trackera NIE MA: `data-live-ignore` (nie dotykaj elementu),
+  `data-skip-morph` (wnętrze hurtem) i `data-live-preserve` (zostaw element, weź świeże atrybuty)
+  sterują MORFEM, nie trackerem.
 - **`<turbo-frame>` to element NIEZNANY przeglądarce, czyli `display: inline`.** Wstawiony w grid
   albo flex psuje układ po cichu: nie dostaje ścieżki gridu jak `<div>`, a w łańcuchu wysokości
   (`min-h-0` + `overflow-y-auto`) przerywa przekazywanie wysokości i paski przewijania znikają.

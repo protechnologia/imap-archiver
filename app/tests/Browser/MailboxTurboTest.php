@@ -154,10 +154,9 @@ class MailboxTurboTest extends BrowserTestCase {
      * Klik podświetla kliknięty wiersz — bez przeładowania listy (etap 4.4).
      *
      * To DOMKNIĘCIE LUKI z 4.3: wtedy klik podmieniał wyłącznie ramkę podglądu, więc lista nigdy
-     * nie dostawała nowego `message` i podświetlenie znikało zupełnie (zmierzone w 4.3d — stąd
-     * wniosek, że wystarczy `LiveProp` z ID i nie trzeba nasłuchu `popstate`). Teraz klik robi
-     * dwie rzeczy naraz: Turbo wymienia ramkę, a akcja live ustawia `messageId` i komponent
-     * morfuje wiersz w miejscu.
+     * nie dostawała nowego `message` i podświetlenie znikało zupełnie (zmierzone w 4.3d). Teraz
+     * klik nadal wymienia samą ramkę — a klasę wiersza nakłada kontroler Stimulusa `active-row`
+     * na `turbo:frame-load`, czytając adres. Żadnego żądania komponentu tu nie ma.
      *
      * Sprawdzamy DRUGI wiersz, nie pierwszy: przy pierwszym indeks 0 mógłby wyjść przypadkiem
      * (np. gdyby szablon podświetlał domyślnie początek listy), a 1 nie ma jak paść przypadkiem.
@@ -175,17 +174,17 @@ class MailboxTurboTest extends BrowserTestCase {
         $this->assertSame(
             1,
             $this->activeRowIndex(),
-            'Podświetlenie nie trafiło na kliknięty wiersz — `messageId` nie doszedł do komponentu',
+            'Podświetlenie nie trafiło na kliknięty wiersz — kontroler `active-row` nie zareagował na zmianę adresu',
         );
     }
 
     /**
      * Deep link i odświeżenie też podświetlają właściwy wiersz.
      *
-     * Ta ścieżka działała już w 4.3 (pełny render oddaje komplet trzech regionów), ale po
-     * przeniesieniu listy do komponentu przechodzi zupełnie inaczej: `messageId` wjeżdża teraz
-     * jako `LiveProp` z `_list.html.twig`, a nie zmienną szablonu. Warto pilnować obu wejść —
-     * gdyby przekazanie się urwało, klik nadal by działał, a zakładka i F5 już nie.
+     * Inne WEJŚCIE niż klik, choć skutek ten sam: tu nie ma żadnego `turbo:frame-load`, bo strona
+     * jest budowana od zera. Podświetlenie bierze się z `rowTargetConnected()` — Stimulus woła je
+     * także dla wierszy obecnych w chwili podłączenia kontrolera. Warto pilnować obu wejść: gdyby
+     * urwało się to drugie, klik nadal by działał, a zakładka i F5 już nie.
      */
     public function testDeepLinkPodswietlaWlasciwyWiersz(): void {
         $this->givenMailbox(5);
@@ -200,7 +199,7 @@ class MailboxTurboTest extends BrowserTestCase {
         $this->assertSame(
             1,
             $this->activeRowIndex(),
-            'Po pełnym renderze podświetlenie zniknęło — `messageId` nie dojechał z kontrolera do komponentu',
+            'Po pełnym renderze podświetlenie zniknęło — wiersze nie zgłosiły się przez `rowTargetConnected()`',
         );
     }
 

@@ -27,6 +27,12 @@ use Symfony\UX\TwigComponent\Attribute\ExposeInTemplate;
  * Dwa źródła prawdy, których NIE wolno pomylić: podpis `LiveProp` mówi „tę wartość wystawił mój
  * serwer", a `MailAccountRepository` — „ten użytkownik ma do niej prawo". Pierwsze nie zastępuje
  * drugiego, dlatego `$accountId` nigdy nie trafia wprost do zapytania (zob. `accessibleAccounts()`).
+ *
+ * KOMPONENT NIE WIE, KTÓRA WIADOMOŚĆ JEST OTWARTA — i tak ma zostać. Podświetlenie wiersza
+ * wyprowadza z adresu kontroler Stimulusa `active-row`; adres należy do Turbo, a komponent nie ma
+ * jak go zobaczyć w chwili renderu. Był tu kiedyś `LiveProp $messageId` i to właśnie ta rozbieżność
+ * go pogrążyła: wartość pochodziła z chwili renderu STRONY, więc po kliknięciu w wiadomość każda
+ * akcja live odsyłała nieaktualne ID. Pełne „dlaczego" w `active_row_controller.js`.
  */
 #[AsLiveComponent]
 class MailList {
@@ -44,22 +50,6 @@ class MailList {
      */
     #[LiveProp]
     public ?int $accountId = null;
-
-    /**
-     * Wiadomość otwarta w podglądzie — podświetla wiersz PRZY RENDERZE strony.
-     *
-     * USTAWIANE Z ZEWNĄTRZ (`:messageId` w `mail/_list.html.twig`), czyli przy pełnym renderze:
-     * deep link, F5, zmiana konta. Klik w wiersz tej wartości NIE zmienia — przestawia klasę
-     * kontroler Stimulusa `active-row`, w DOM i bez żądania.
-     *
-     * Ten podział jest ŚWIADOMY i wynika z pomiaru. Próbowaliśmy zrobić to po stronie serwera
-     * (akcja live + `url: mapPath`) i działało, ale kosztem wyścigu o pasek adresu: Turbo wpisuje
-     * `/mail/42` przez `advance`, a kontroler live po każdej odpowiedzi robi `history.replaceState()`
-     * i NADPISUJE ten wpis — `wstecz` gubił wtedy krok (pierwsze naciśnięcie nic nie robiło).
-     * Podświetlenie to stan interfejsu, nie dane; serwer nie musi o nim wiedzieć.
-     */
-    #[LiveProp]
-    public ?int $messageId = null;
 
     /**
      * Fraza z pola szukania.

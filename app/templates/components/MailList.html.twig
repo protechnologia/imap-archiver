@@ -25,8 +25,13 @@
   zachowuje przewinięcie i wpisaną frazę.
 
   Komponent NIE JEST w ramce (ani własnej, ani podglądu): morf podmienia wyłącznie to, co się
-  zmieniło, więc zachowuje przewinięcie listy i fokus w polu szukania. Ramka przeładowuje
-  zawartość i odebrałaby dokładnie tę zaletę — pełne „dlaczego" w Gotchas.
+  zmieniło, więc nagłówek z polem szukania zachowuje fokus i kursor przy każdym znaku. Ramka
+  przeładowuje zawartość i odebrałaby dokładnie tę zaletę — pełne „dlaczego" w Gotchas.
+
+  UWAGA: dotyczy to NAGŁÓWKA, nie wierszy. Sama `<ul>` ma `data-skip-morph` i jest wymieniana
+  hurtem (uzasadnienie przy niej samej) — w wierszach nie ma stanu DOM do ocalenia, a morfowanie
+  ich robiło realną szkodę. Przewinięcie kolumny to osobna sprawa i nie zależy od niczego tutaj:
+  kontenerem przewijania jest `<section>` z `index.html.twig`, czyli element POZA komponentem.
 
   Wysokość i przewijanie kolumny ustawia `<section>` w `index.html.twig` (`min-h-0` +
   `overflow-y-auto`), więc TU ich nie powtarzamy — inaczej powstałby drugi pasek przewijania
@@ -86,20 +91,26 @@
            a zaznaczony niesie własny pasek — kreski dokładały trzeci sygnał do tej samej roli.
            `flex-1` rozciągało dodatkowo listę na całą kolumnę, zostawiając pustkę pod ostatnią
            wiadomością. #}
-        <ul data-controller="active-row">
-            {% for item in page.items %}
-                {# Podświetlenie ma DWA źródła i to jest świadome:
-                     • przy renderze strony (deep link, F5, zmiana konta) daje je `messageId`
-                       z serwera — widać w klasie niżej;
-                     • przy nawigacji w obrębie listy (klik, `wstecz`, `dalej`) przestawia je
-                       Stimulus, bo podmieniana jest sama ramka podglądu i lista nie jest
-                       przerysowywana. Kontroler czyta ADRES, nie kliknięcie — inaczej po `wstecz`
-                       zaznaczenie zostawałoby na poprzednio klikniętym wierszu.
+        {# `data-skip-morph`: wnętrze listy wymieniamy HURTEM, zamiast morfować wiersz po wierszu.
+           Powód pierwszy — morfowanie nic tu nie daje: przy każdej akcji (strona, fraza) zmienia
+           się CAŁA zawartość, a stanu DOM w wierszach nie ma (fokus przy szukaniu i paginacji
+           siedzi w polu albo na przycisku, nie na wierszu).
 
-                   Klik jest ZWYKŁĄ NAWIGACJĄ TURBO, bez akcji live. Przestawianie klasy po stronie
-                   serwera też działało, ale kontroler live po każdej odpowiedzi robi
-                   `history.replaceState()` i nadpisywał wpis dodany przez `advance` — `wstecz`
-                   gubił wtedy krok. Pełne „dlaczego" w `active_row_controller.js`. #}
+           Powód drugi jest ważniejszy. Live Component zapamiętuje zmiany DOM zrobione spoza
+           komponentu (`ExternalMutationTracker`) i odtwarza je po morfie na elemencie z TEGO SAMEGO
+           MIEJSCA. Klasa podświetlenia, którą ustawia Stimulus, przenosiła się więc na wiersz
+           o tym samym indeksie — czyli na inną wiadomość. Przy wymianie hurtem stare węzły
+           przestają istnieć, nie ma czego i na co odtwarzać, a każdy nowy wiersz sam pyta o adres
+           w `rowTargetConnected()`.
+
+           UWAGA: atrybut idzie na `<ul>`, NIE na korzeń komponentu — nagłówek z polem szukania
+           musi się dalej morfować, inaczej przy każdym znaku ginąłby fokus i kursor w polu. #}
+        <ul data-controller="active-row" data-skip-morph>
+            {% for item in page.items %}
+                {# Wiersz jest ZAWSZE renderowany jako nieaktywny — serwer nie wie, która wiadomość
+                   jest otwarta, i nie ma tego wiedzieć. Klasę aktywnego wiersza nakłada wyłącznie
+                   kontroler Stimulusa `active-row`, czytając ADRES; jedno źródło, jedna kopia
+                   reguły. Klik w wiersz to zwykła nawigacja Turbo, bez żadnej akcji live. #}
                 {# Pasek zaznaczenia to LEWE OBRAMOWANIE obecne ZAWSZE, tylko przezroczyste na
                    nieaktywnych wierszach — inaczej pojawienie się ramki przesuwałoby treść o 2 px
                    przy każdym kliknięciu. Animujemy `border-color` i `background-color`, nie
@@ -108,9 +119,13 @@
                    Kolor koniecznie przez `border-l-*`, NIE `border-*`: to drugie farbuje wszystkie
                    cztery krawędzie naraz, więc każda kreska w wierszu przejmowałaby kolor
                    zaznaczenia. #}
+                {# `data-active-row-target` to atrybut Stimulusa, `data-message-id` NIE JEST —
+                   to zwykła dana odczytywana przez `dataset`. Nazwa świadomie bez sufiksu
+                   `-param`: ten należy do mechanizmu `event.params`, który działa tylko
+                   w AKCJACH, a tu żadnej akcji nie ma. #}
                 <li data-active-row-target="row"
-                    data-active-row-id-param="{{ item.id }}"
-                    class="border-l-2 transition-colors duration-200 {{ messageId == item.id ? 'border-l-blue-600 bg-blue-50' : 'border-l-transparent hover:bg-slate-50' }}">
+                    data-message-id="{{ item.id }}"
+                    class="border-l-2 border-l-transparent transition-colors duration-200 hover:bg-slate-50">
                     {# Bez `?account=`: kontroler wyprowadza konto Z SAMEJ WIADOMOŚCI, gdy parametru
                        nie ma (`?? $message?->getAccount()`), więc niósłby tylko szum. Co gorsza
                        migałby w pasku adresu — Turbo wpisywałoby `/mail/42?account=11`, a odpowiedź
