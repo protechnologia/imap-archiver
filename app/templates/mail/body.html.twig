@@ -1,0 +1,61 @@
+{#
+  Treść HTML maila jako SAMODZIELNY dokument, serwowany przez `MailController::body()` (etap 4.5).
+
+  Nie dziedziczy z `base.html.twig` i to jest sedno: ma być osobnym dokumentem w osobnym origin,
+  bez naszego CSS-u, naszych skryptów i naszego kontekstu. Cała reszta aplikacji ma go widzieć
+  wyłącznie jako prostokąt w iframie.
+
+  `content` jest JUŻ ZSANITYZOWANY (`html_sanitizer` z profilem `mail.body`) i tylko dlatego wolno
+  tu użyć `|raw`. To jedyne miejsce w projekcie, w którym niezaufana treść trafia do szablonu bez
+  escapowania — jeśli kiedykolwiek zmieni się źródło tej zmiennej, sanityzacja musi iść razem z nim.
+
+  `<style>` dostaje NONCE, bo CSP tej odpowiedzi to `default-src 'none'` i bez tego zabiłoby także
+  naszą typografię. Nonce zamiast `'unsafe-inline'` przepuszcza wyłącznie TEN blok — style nadawcy
+  nie mają jak się podszyć, bo nie znają losowej wartości (i tak wycina je sanitizer, to druga warstwa).
+#}
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Treść wiadomości</title>
+    <style nonce="{{ nonce }}">
+        /* Typografia jest NASZA, nie nadawcy: `drop_attributes: {style: '*'}` zdejmuje style inline,
+           bo sanitizer nie ma parsera CSS i nie odróżniłby akapitu od `position: fixed`
+           przykrywającego interfejs. Mail dostaje więc czysty, czytelny render zamiast swojego. */
+        :root { color-scheme: light; }
+        body {
+            margin: 0;
+            padding: 1rem 1.25rem;
+            font: 14px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            color: #1e293b;
+            background: #fff;
+            overflow-wrap: break-word;
+        }
+        a { color: #1d4ed8; }
+        /* Obrazy zdalne tracą `src` w sanitizerze, a CSP i tak zablokowałoby żądanie — zostaje
+           sam `alt`. Ramka i tło pokazują, że COŚ tu było, zamiast niewidocznej dziury. */
+        img { max-width: 100%; height: auto; }
+        img:not([src]) {
+            display: inline-block;
+            min-width: 2rem;
+            padding: 0.25rem 0.5rem;
+            border: 1px dashed #cbd5e1;
+            border-radius: 4px;
+            color: #94a3b8;
+            font-size: 12px;
+        }
+        table { border-collapse: collapse; max-width: 100%; }
+        td, th { border: 1px solid #e2e8f0; padding: 0.25rem 0.5rem; text-align: left; }
+        blockquote {
+            margin: 0.5rem 0;
+            padding-left: 0.75rem;
+            border-left: 3px solid #e2e8f0;
+            color: #64748b;
+        }
+        pre { white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+{{ content|raw }}
+</body>
+</html>

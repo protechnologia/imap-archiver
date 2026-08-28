@@ -1,5 +1,11 @@
 twig_component:
-    anonymous_template_directory: 'components/'
+    # Kontrolki BEZKLASOWE mieszkają osobno od komponentów z klasą PHP i to jest celowy rozdział:
+    # `templates/components/` to szablony klas z `App\Twig\Components\` (stan, `LiveProp`, akcje),
+    # a `templates/widgets/` to czysty render bez logiki. Trzymane razem myliłyby dwie różne rzeczy
+    # — szablon należący do klasy i samodzielny kawałek interfejsu.
+    # Katalog jest PŁASKI, więc wołanie zostaje bez przedrostka: `<twig:SegmentedControl />`
+    # (bundle mapuje `:` w nazwie na `/` w ścieżce, czego tu świadomie nie wykorzystujemy).
+    anonymous_template_directory: 'widgets/'
     defaults:
         # Namespace & directory for components
         App\Twig\Components\: 'components/'

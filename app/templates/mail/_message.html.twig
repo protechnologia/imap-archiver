@@ -1,11 +1,24 @@
 {#
-  Prawy region: podgląd wiadomości (etapy 4.3a i 4.3b).
+  Prawy region: podgląd wiadomości (etapy 4.3a, 4.3b i 4.5).
 
   `message` bywa null — to normalny stan (`/mail` bez wybranej wiadomości), nie błąd.
 
-  Treść pokazujemy jako `Message.body`, czyli TEKSTOWE ziarno z indeksu. Pełny HTML czytany
-  z `.eml`, przepuszczony przez HTMLPurifier i osadzony w `<iframe sandbox>`, wchodzi w 4.5;
-  pobieranie załączników w 4.6 (tu widać wyłącznie ich metadane).
+  Treść pochodzi z `.eml` przez `MailBodyReader` (`body`), NIE z kolumny `Message.body`. Indeks
+  trzyma tylko ziarno tekstowe, a dla maila HTML-only siedzi w nim źródło HTML-a — poprzednia
+  wersja tego szablonu pokazywała je jako ścianę tagów. Brak pliku w archiwum to brak treści,
+  bez podmieniania jej czymkolwiek z bazy: archiwum jest źródłem prawdy, podgląd nie może
+  sugerować inaczej.
+
+  PRZEŁĄCZNIK TEKST/HTML nie zmienia adresu — link celuje w ramkę `message` i nie ma
+  `data-turbo-action`, więc `?view=` żyje tylko w `href`. To decyzja: wybór wariantu jest stanem
+  ULOTNYM (jak pozycja przewinięcia), a nie tożsamością zasobu. Dzięki temu przełącznik w ogóle
+  nie dotyka paska adresu, więc nie dopisuje się do wyścigu z `MailList` i `active_row_controller`
+  (gotcha „pasek adresu ma jednego właściciela"). Kosztem jest tylko F5, po którym wracamy
+  do wariantu domyślnego.
+
+  `account` zostaje w adresie MIMO nawigacji ramkowej: przy działającym Turbo nie ma znaczenia
+  (z odpowiedzi bierzemy tylko podgląd), ale bez JS-a link jest pełną nawigacją i jego brak
+  zresetowałby listę do „wszystkich kont".
 
   Nagłówek wiadomości jest `sticky` w obrębie kolumny: przy długim mailu temat i nadawca
   zostają w polu widzenia.
@@ -18,9 +31,38 @@
         </div>
     </div>
 {% else %}
+    {# Bazowe parametry linków podglądu — bez `view`, który dokłada dopiero przełącznik. #}
+    {% set linkParams = selectedAccount ? {id: message.id, account: selectedAccount.id} : {id: message.id} %}
     <article>
         <header class="sticky top-0 z-10 border-b border-slate-200 bg-white px-5 py-4">
-            <h1 class="text-lg font-semibold text-slate-900">{{ message.subject|default('(bez tematu)') ?: '(bez tematu)' }}</h1>
+            <div class="flex items-start justify-between gap-3">
+                <h1 class="text-lg font-semibold text-slate-900">{{ message.subject|default('(bez tematu)') ?: '(bez tematu)' }}</h1>
+
+                {# Pozycja bez `href` jest zablokowana — patrz `widgets/SegmentedControl.html.twig`.
+                   Blokujemy zamiast ukrywać: „ta wiadomość nie ma wersji tekstowej" to informacja
+                   o wiadomości, a nie brak funkcji aplikacji. #}
+                {% if not body.isEmpty %}
+                    <twig:SegmentedControl
+                        label="Wariant treści"
+                        active="{{ view }}"
+                        :segments="[
+                            {
+                                key: 'text',
+                                label: 'Tekst',
+                                href: body.has('text') ? path('app_mail_show', linkParams|merge({view: 'text'})) : null,
+                                title: body.has('text') ? null : 'Ta wiadomość nie ma wersji tekstowej',
+                            },
+                            {
+                                key: 'html',
+                                label: 'HTML',
+                                href: body.has('html') ? path('app_mail_show', linkParams|merge({view: 'html'})) : null,
+                                title: body.has('html') ? null : 'Ta wiadomość nie ma wersji HTML',
+                            },
+                        ]"
+                    />
+                {% endif %}
+            </div>
+
             <p class="mt-1 text-sm text-slate-700">
                 {{ message.fromName }}{% if message.fromEmail %} <span class="text-slate-500">&lt;{{ message.fromEmail }}&gt;</span>{% endif %}
             </p>
@@ -53,12 +95,33 @@
             </div>
         {% endif %}
 
-        <div class="bg-white px-5 py-4">
-            {% if message.body %}
-                <pre class="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-slate-800">{{ message.body }}</pre>
-            {% else %}
-                <p class="text-sm text-slate-500">Ta wiadomość nie ma treści tekstowej w indeksie.</p>
-            {% endif %}
-        </div>
+        {% if view == 'html' %}
+            {# Trzecia zapora: iframe odbiera dokumentowi UPRAWNIENIA. Bez `allow-same-origin`
+               dokument ląduje w opaque origin, więc nie sięgnie do sesji ani DOM-u rodzica;
+               bez `allow-scripts` nie wykona kodu; bez `allow-top-navigation` nie przekieruje
+               całej aplikacji. Wpuszczamy JEDYNIE wyskakujące okna, bo bez nich `target="_blank"`
+               (wymuszany na linkach przez sanitizer) byłby martwy i klik wciągnąłby cudzą stronę
+               do tej kolumny. `allow-popups-to-escape-sandbox` sprawia, że nowa karta jest zwykłą
+               stroną, a nie kolejną piaskownicą dziedziczącą nasze ograniczenia.
+               Pozostałe dwie zapory: sanitizer (`html_sanitizer.yaml`) i CSP (`MailController::body()`).
+               Wysokość jest na razie STAŁA — dopasowanie do treści to etap 4.7, razem
+               z przywracaniem przewinięcia kolumny. #}
+            <iframe src="{{ path('app_mail_body', {id: message.id}) }}"
+                    sandbox="allow-popups allow-popups-to-escape-sandbox"
+                    referrerpolicy="no-referrer"
+                    title="Treść wiadomości"
+                    class="block h-[70vh] w-full border-0 bg-white"></iframe>
+        {% elseif view == 'text' %}
+            <div class="bg-white px-5 py-4">
+                <pre class="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-slate-800">{{ body.text }}</pre>
+            </div>
+        {% else %}
+            <div class="bg-white px-5 py-4">
+                <p class="text-sm text-slate-500">
+                    Nie ma treści tej wiadomości w archiwum
+                    {%- if not message.verified %} — plik <code class="text-xs">.eml</code> nie został zweryfikowany{% endif %}.
+                </p>
+            </div>
+        {% endif %}
     </article>
 {% endif %}

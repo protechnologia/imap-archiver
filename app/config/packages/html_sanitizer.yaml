@@ -1,0 +1,54 @@
+# Sanityzacja treści HTML wiadomości przed osadzeniem w podglądzie (etap 4.5).
+#
+# To PIERWSZA z trzech warstw i jedyna, która działa na treści, zanim ta opuści serwer.
+# Pozostałe dwie (`sandbox` na iframie, `Content-Security-Policy` na odpowiedzi trasy
+# `/mail/{id}/body`) ograniczają już tylko zachowanie gotowego dokumentu w przeglądarce.
+# Żadna nie zastępuje pozostałych — pełny podział ról w README i w docbloku `MailController::body()`.
+#
+# Sanitizer nie filtruje wyrażeniami regularnymi: parsuje wejście i serializuje je z powrotem
+# z drzewa, więc na wyjściu dostajemy dokument poprawnie zbudowany z definicji. Sztuczki oparte
+# na niedomkniętych tagach nie mają się o co zaczepić.
+framework:
+    html_sanitizer:
+        sanitizers:
+            mail.body:
+                # Baza: bezpieczny zestaw elementów i atrybutów z W3C Sanitizer API.
+                allow_safe_elements: true
+
+                # Usuwane RAZEM Z ZAWARTOŚCIĄ — wnętrze `<script>` czy `<style>` nie jest treścią
+                # maila do przeczytania, tylko kodem. `<base>` przepisałby wszystkie względne adresy
+                # w dokumencie, `<meta>` mógłby zrobić przekierowanie przez `http-equiv="refresh"`.
+                drop_elements: ['script', 'style', 'iframe', 'object', 'embed', 'base', 'link', 'meta']
+
+                # Usuwany jest sam TAG, dzieci zostają — formularza nie chcemy (mógłby udawać
+                # logowanie i wysłać dane), ale tekst wpisany między jego znacznikami to treść maila.
+                block_elements: ['form', 'input', 'button', 'select', 'textarea']
+
+                # Style inline lecą w całość: `symfony/html-sanitizer` nie ma parsera CSS, więc nie
+                # umie odróżnić bezpiecznej typografii od `position: fixed` przykrywającego interfejs.
+                # Wybór jest binarny i padł na „bez stylów nadawcy" — mail dostaje naszą typografię
+                # z `templates/mail/body.html.twig`.
+                drop_attributes:
+                    style: '*'
+
+                # Schematy linków: `javascript:` i `data:` odpadają przez pominięcie na liście.
+                allowed_link_schemes: ['http', 'https', 'mailto']
+                allow_relative_links: false
+
+                # Każdy link maila otwiera się w NOWEJ KARCIE. Bez tego klik nawigowałby sam iframe
+                # i cudza strona wjechałaby do kolumny podglądu, udając część naszej aplikacji —
+                # to ta sama reguła `target`, co w `layout.html.twig`, tylko odwrócona: tam linki
+                # leżą poza ramką i celują w całą stronę same z siebie, tutaj trzeba je wypchnąć.
+                # `noopener` odcina nowej karcie dostęp do `window.opener`, `noreferrer` nie zdradza
+                # nadawcy, że ktoś czyta jego mail (adres `/mail/42` nie wychodzi w nagłówku Referer).
+                force_attributes:
+                    a:
+                        target: '_blank'
+                        rel: 'noopener noreferrer'
+
+                # PUSTA lista hostów mediów = żaden zdalny obraz nie przejdzie, więc piksel śledzący
+                # traci `src` już na serwerze. CSP i tak zablokuje żądanie w przeglądarce — to celowa
+                # nadmiarowość: gdyby kiedyś ktoś poluzował nagłówek, obrazy dalej nie wyciekną.
+                # Wartość `[]` jest znacząca (`null` oznaczałoby „wszystkie hosty dozwolone").
+                allowed_media_hosts: []
+                allow_relative_medias: false

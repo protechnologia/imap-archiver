@@ -1,0 +1,60 @@
+{% props segments = [], active = null, label = 'Wybór wariantu' %}
+
+{#
+  Przełącznik segmentowy: kilka wzajemnie wykluczających się pozycji, jedna aktywna (etap 4.5).
+
+  Anonimowy komponent Twiga — bez klasy PHP, bo nie ma tu żadnej logiki poza renderem. Wołany
+  jak każdy inny: `<twig:SegmentedControl :segments="…" active="text" label="…" />`.
+
+  Świadomie NIE WIE nic o dziedzinie — dostaje gotowe segmenty i nazwę aktywnego, więc nadaje się
+  na wybór wariantu treści (4.5), tryb sortowania czy filtr zakresu, bez dotykania tego pliku.
+
+  DLACZEGO SERWEROWO, A NIE KONTROLEREM STIMULUSA. Kuszące było zrobić z tego widget: Twig podaje
+  dane w `data-*`, JS buduje markup. Odrzucone z dwóch powodów. Po pierwsze testy — stan kontrolki
+  (który segment aktywny, który zablokowany) sprawdza wtedy `WebTestCase` na HTML-u z serwera,
+  w milisekundach; markup budowany w JS wymagałby Panthera, ~2 s na przypadek, a CLAUDE.md
+  rezerwuje `tests/Browser/` na to, czego inaczej zmierzyć się NIE DA. Po drugie warstwy: dane
+  i tak pochodzą z serwera (dostępność wariantów z `.eml`, adresy z `path()`), więc JS niczego by
+  nie scalił — dołożyłby drugą warstwę nad tą, która i tak decyduje.
+
+  Granica jest ta sama, co przy podświetleniu wiersza w 4.4b: stan wyprowadzamy w Stimulusie
+  tylko wtedy, gdy region NIE JEST przerenderowywany przez to samo zdarzenie, które ten stan
+  zmienia. Lista nie jest (Turbo wymienia ramkę podglądu, lista zostaje ze starym HTML-em),
+  więc tam rządzi JS. Kontrolka w ramce podglądu jest — każde kliknięcie to nowa odpowiedź
+  z serwera, więc markup i stan przyjeżdżają razem i nie mają jak się rozjechać.
+  Gdyby kontrolka kiedyś dostała zachowanie klienckie (strzałki, roving `tabindex`, pełne ARIA),
+  ten bilans się odwraca — wtedy kontroler jest potrzebny i markup powinien przenieść się do niego.
+
+  Segment BEZ `href` jest ZABLOKOWANY i to jest jego jedyny wyróżnik — brak adresu znaczy „tej
+  pozycji nie da się wybrać". Blokujemy zamiast ukrywać, bo w archiwum „ta wiadomość nie ma wersji
+  tekstowej" jest INFORMACJĄ; zniknięcie pozycji zostawiałoby pytanie, czy wariantu nie ma, czy to
+  aplikacja go zgubiła.
+
+  Aktywny segment renderuje się jako `<span>`, nie link: prowadziłby tam, gdzie już jesteś.
+  Skutek uboczny jest pożądany — przy jednym segmencie aktywnym i drugim zablokowanym nie ma
+  w kontrolce ANI JEDNEGO elementu klikalnego, co dokładnie oddaje stan „nie ma czego wybierać".
+
+  @param segments Lista map: `key` (identyfikator), `label` (napis), `href` (adres; brak = blokada),
+                  opcjonalnie `title` (tooltip, np. wyjaśnienie blokady).
+                  Przykład: [{key: 'text', label: 'Tekst', href: '/mail/42'}, {key: 'html', label: 'HTML'}]
+  @param active   `key` segmentu aktywnego, np. "text"
+  @param label    Etykieta grupy dla czytników ekranu, np. "Wariant treści"
+#}
+<div role="group" aria-label="{{ label }}" {{ attributes.defaults({
+    class: 'inline-flex shrink-0 rounded-md bg-slate-100 p-0.5 text-xs',
+}) }}>
+    {% for segment in segments %}
+        {% if segment.key == active %}
+            <span aria-current="true"
+                  class="rounded bg-white px-2.5 py-1 font-medium text-slate-900 shadow-sm">{{ segment.label }}</span>
+        {% elseif segment.href is defined and segment.href %}
+            <a href="{{ segment.href }}"
+               {% if segment.title is defined and segment.title %}title="{{ segment.title }}"{% endif %}
+               class="rounded px-2.5 py-1 text-slate-600 transition hover:text-slate-900">{{ segment.label }}</a>
+        {% else %}
+            <span aria-disabled="true"
+                  title="{{ segment.title|default('Ten wariant jest niedostępny') }}"
+                  class="cursor-not-allowed rounded px-2.5 py-1 text-slate-300">{{ segment.label }}</span>
+        {% endif %}
+    {% endfor %}
+</div>

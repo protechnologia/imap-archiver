@@ -29,6 +29,7 @@ Wielu użytkowników z dostępem do podglądu; jeden admin robi import i zarząd
 - Symfony Messenger (transport Doctrine na start; AMQP/RabbitMQ później)
 - Front: Twig + Symfony UX (Turbo + Stimulus + Live Components), Tailwind przez
   `symfonycasts/tailwind-bundle`, AssetMapper — bez Node/npm
+- Sanityzacja HTML maili: `symfony/html-sanitizer` (NIE HTMLPurifier — patrz etap 4.5)
 - Panel admina: EasyAdmin
 - Mercure (wbudowany w FrankenPHP) — live-progress importu
 - Docker / docker compose
@@ -119,8 +120,24 @@ Wielu użytkowników z dostępem do podglądu; jeden admin robi import i zarząd
 - **`target="_top"` w nagłówku `layout.html.twig` NIE jest potrzebny** — te linki leżą poza ramką,
   a taki link celuje domyślnie w całą stronę. Reguła ODWRACA SIĘ dla linków WEWNĄTRZ podglądu
   (treść maila 4.5, załączniki 4.6): tam jego brak wciągnie cudzą stronę do kolumny.
-- Treść HTML maila renderujemy w `<iframe sandbox>` (bez `allow-scripts`), po przepuszczeniu
-  przez HTMLPurifier.
+- **Treść maila: TRZY ZAPORY, każda przed czym innym, żadna nie zastępuje pozostałych.**
+  `symfony/html-sanitizer` (profil `mail.body`) USUWA groźne konstrukcje, zanim treść opuści
+  serwer; `Content-Security-Policy: default-src 'none'` na odpowiedzi `/mail/{id}/body` zabrania
+  dokumentowi ŻĄDAĆ czegokolwiek z sieci (piksele śledzące); `<iframe sandbox>` bez `allow-scripts`
+  i `allow-same-origin` odbiera mu UPRAWNIENIA (opaque origin, brak nawigacji górnej ramki).
+  Awarie są niezależne: nagłówek może uciąć proxy, atrybut nakłada strona rodzica, a sanitizer
+  działa jeszcze przed wysyłką. Czego NIE broni żadna z nich: linku, którego napis kłamie
+  o adresie — od tego jest przełącznik na wersję tekstową z gołym URL-em.
+- **Wariant treści wybiera przełącznik tekst/HTML, domyślnie TEKST** (gdy istnieje). Brakujący
+  wariant BLOKUJE swoją pozycję zamiast ją ukrywać — „ta wiadomość nie ma wersji tekstowej" jest
+  informacją o wiadomości, nie brakiem funkcji. Przełącznik NIE zmienia adresu (link bez
+  `data-turbo-action`): wybór wariantu to stan ulotny, więc nie dopisuje się do wyścigu o pasek
+  adresu. Tekst renderuje się WPROST w kolumnie (`<pre>`), nie w iframie — inaczej płaciłby drugim
+  żądaniem przy każdym otwarciu maila i odbierał Ctrl+F (przeglądarki nie szukają w iframe'ach).
+- **Kontrolki bezklasowe mieszkają w `templates/widgets/`** (anonimowe komponenty Twiga,
+  `anonymous_template_directory`), a `templates/components/` zostaje dla szablonów klas
+  z `App\Twig\Components\`. Szablon należący do klasy i samodzielny kawałek interfejsu to dwie
+  różne rzeczy. Katalog jest płaski: `<twig:SegmentedControl />`.
 - `LiveProp` non-writable są podpisane checksumem z `APP_SECRET` → można im ufać przy
   zawężaniu zapytań. Writable (`query`, `page`) traktujemy jak input użytkownika.
 - Szew na full-text: filtr listy idzie przez `MessageRepository::searchPage()`
@@ -280,10 +297,19 @@ mieszkają w sekcjach **Architektura**, **Model danych**, **Konfiguracja i sekre
         strażniki przed naprawą „zgaśmy wszystko" i jeden na jedyną ścieżkę, w której wiersz znika
         z DOM i wraca. Nośność `data-skip-morph` i `rowTargetConnected()` potwierdzona osobno,
         wstrzykniętą regresją.
-  - [ ] **4.5** — render treści maila. UWAGA: `Message.body` to tylko ziarno tekstowe
-        (`MessageFactory::extractBody()` preferuje `text`, HTML jest fallbackiem) — pełny HTML
-        czytamy z `.eml` przez `ArchiveStorage`. HTMLPurifier → `<iframe sandbox>` bez
-        `allow-scripts`; blokada zdalnych obrazów (pixele śledzące).
+  - [x] **4.5** — render treści maila. `MailBodyReader` czyta OBA warianty z `.eml` (jedno
+        parsowanie odpowiada i na „co pokazać", i na „co jest dostępne"), DTO `MailBody`
+        rozstrzyga wariant, trasa `/mail/{id}/body` podaje sam HTML z kompletem nagłówków.
+        Sanitizer to `symfony/html-sanitizer`, NIE HTMLPurifier — natywny dla Symfony, bez
+        katalogu cache do pilnowania w `app:doctor`; różnica praktyczna: nie ma parsera CSS,
+        więc style inline lecą w całość i mail dostaje naszą typografię.
+        Trwałe ustalenia mieszkają w sekcjach **Front — wzorzec** i **Gotchas**.
+        **Co warto pamiętać przy 4.6:** `.eml` jest już czytane i parsowane w `MailBodyReader` —
+        załączniki wyjdą z tego samego miejsca; linki w treści mają wymuszone `target="_blank"`,
+        więc iframe musi zachować `allow-popups`; archiwum testowe to `var/test-archive`
+        (przykrycie w `when@test`), bo `ARCHIVE_DIR` z compose nie da się przykryć `.env.test`.
+        ➜ 170 testów, 418 asercji (było 141/339) — 29 nowych. Zweryfikowane też w przeglądarce
+        na zaślepkach z celowo złośliwym HTML-em (skrypt, piksel, `onerror`, kłamliwy link).
   - [ ] **4.6** — załączniki: pobieranie bajtów wyciętych z `.eml` (metadane w DB ich nie mają),
         `Content-Disposition: attachment`, sanityzacja nazwy pliku, autoryzacja przez Voter.
   - [ ] **4.7** — sprinkles Stimulus: nawigacja klawiaturą po liście, dopasowanie wysokości iframe,
@@ -354,7 +380,10 @@ docker compose exec php php bin/console app:imap:ping --account=<id> [--limit=N]
 # import (od etapu 3)
 docker compose exec php php bin/console app:archive:import --account=<id> --year=<rok>
 
-# zaślepki wiadomości do oglądania listy (od 4.4) — TYLKO dev, bez plików .eml (verified=false)
+# zaślepki wiadomości (od 4.4; od 4.5 razem z PLIKAMI .eml i verified=true) — TYLKO dev.
+# Trzy kształty co trzecią wiadomość (text / html / multipart-alternative), żeby było widać
+# wszystkie stany przełącznika tekst/HTML. HTML zaślepek jest złośliwy CELOWO (skrypt, piksel
+# śledzący, onerror, link z kłamliwym napisem) — tak sprawdza się zapory gołym okiem.
 docker compose exec php php bin/console app:dev:seed-messages [--count=120] [--account=<id>]
 
 # diagnostyka listy wiadomości (od etapu 4.1) — to samo zapytanie, co komponent listy
@@ -562,6 +591,32 @@ Eksploratora Windows pod `\\wsl.localhost\dev-edor-gw\root\projects\imap-archive
   `hidden` ustawia tę samą właściwość i o zwycięzcy decyduje kolejność w arkuszu — dawać JEDEN
   wariant `display` na stan (`{{ warunek ? 'block' : 'hidden md:block' }}`). Jeśli ramka miałaby
   objąć więcej niż jedną kolumnę gridu, potrzebny jest `display: contents` (klasa `contents`).
+- **Toolbar profilera wstrzykuje swój HTML do KAŻDEJ odpowiedzi `text/html`** — także do
+  izolowanego dokumentu `/mail/{id}/body`, czyli do wnętrza iframe'a z cudzą korespondencją.
+  Do tego jego `ContentSecurityPolicyHandler` DOPISUJE do naszego nagłówka `'unsafe-inline'`
+  i własne nonce'y, więc to, co mierzysz w przeglądarce, przestaje być tym, co pójdzie na produkcję.
+  Wstrzyknięcie zdejmuje `$this->profiler?->disable()` w akcji (bez `X-Debug-Token` listener
+  wychodzi bez roboty) — profiler wstrzykujemy `#[Autowire(service: 'profiler')]` z domyślnym
+  `null`, bo na produkcji tej usługi nie ma. UWAGA: **handler CSP działa i tak**, przed sprawdzeniem
+  trybu toolbara, a WebProfilerBundle jest włączony w `dev` ORAZ `test` — dlatego testy asercjują
+  POSZCZEGÓLNE dyrektywy (`default-src 'none'`, `base-uri 'none'`), nigdy całego nagłówka.
+- **`form-action` i `base-uri` NIE dziedziczą z `default-src`** (podobnie `frame-ancestors`).
+  „Ustawiłem `'none'`, więc wszystko jest zablokowane" to nieprawda — te dyrektywy trzeba wypisać
+  jawnie, inaczej formularz w treści maila dalej ma dokąd wysłać dane.
+- **W `symfony/html-sanitizer` `allowed_media_hosts: []` znaczy „żaden host", a BRAK klucza znaczy
+  „wszystkie"** (default to `null`). `FrameworkExtension` woła `allowMediaHosts()` bezwarunkowo,
+  więc pusta lista naprawdę działa — nie jest traktowana jak „nie ustawiono". Analogicznie
+  `allowed_media_schemes: []` NIE zadziała, bo tam wywołanie jest pod warunkiem prawdziwości.
+- **Pełny `sandbox` zabija `target="_blank"`** (wymaga `allow-popups`), a wtedy klik w link maila
+  nawigowałby SAM IFRAME i cudza strona wjechałaby do kolumny podglądu, udając część aplikacji.
+  Stąd para: sanitizer wymusza `target="_blank"` + `rel="noopener noreferrer"`, a iframe dostaje
+  `allow-popups allow-popups-to-escape-sandbox` (bez tej drugiej flagi nowa karta dziedziczyłaby
+  piaskownicę). To ta sama reguła `target`, co w `layout.html.twig`, tylko odwrócona.
+- **`ARCHIVE_DIR` przyjeżdża z `compose.yaml` jako REAL ENV VAR, więc `.env.test` go NIE przykryje.**
+  Bez przykrycia każdy test idący przez kontener pisałby `.eml` do `/archive`, czyli do bind mountu
+  ze źródłem prawdy. Przykrycie siedzi w `when@test` w `services.yaml` (argument `$archiveDir`
+  → `var/test-archive`); testy jednostkowe robią to inaczej — budują `ArchiveStorage` wprost na
+  katalogu tymczasowym. `dama` cofa transakcję bazy, ale PLIKÓW nie — sprzątanie własne w `tearDown`.
 - Stateless CSRF (config/packages/csrf.yaml): formularze renderują token jako literał
   `csrf-token` (JS go podmienia w przeglądarce). Walidacja przechodzi, gdy żądanie jest
   same-origin (nagłówek `Origin`/`Referer` zgodny z hostem) **i** w POST jest pole tokenu

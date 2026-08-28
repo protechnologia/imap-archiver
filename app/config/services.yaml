@@ -30,3 +30,21 @@ services:
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
+
+when@test:
+    services:
+        _defaults:
+            autowire: true
+            autoconfigure: true
+
+        # ARCHIWUM TESTOWE OSOBNO OD PRAWDZIWEGO (etap 4.5).
+        # `ARCHIVE_DIR` przyjeżdża z `compose.yaml` jako REAL ENV VAR, więc nie da się go przykryć
+        # wpisem w `.env.test` — env var wygrywa z plikiem. Bez tego przykrycia każdy test idący
+        # przez kontener (funkcjonalny podgląd treści) pisałby `.eml` do `/archive`, czyli do
+        # bind mountu ze ŹRÓDŁEM PRAWDY, i zostawiał tam śmieci pod ID kont z bazy `app_test`.
+        # Testy jednostkowe robią to inaczej — budują `ArchiveStorage` wprost na katalogu
+        # tymczasowym (patrz `ArchiveStorageTest`, `ImportManagerTest`) — ale kontrolera tak
+        # skonfigurować się nie da, bo usługę składa kontener.
+        App\Service\ArchiveStorage:
+            arguments:
+                $archiveDir: '%kernel.project_dir%/var/test-archive'
